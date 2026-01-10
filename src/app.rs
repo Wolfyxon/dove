@@ -11,21 +11,29 @@ pub struct App {
     main_frame: egui::Frame,
     messages: Vec<Message>,
     text_to_send: String,
-    tx: Sender<DiscordCommEvent>,
-    rx: Receiver<DiscordCommEvent>
+    tx_to_dc: Sender<DiscordCommEvent>,
+    rx_from_dc: Receiver<DiscordCommEvent>
 }
 
 impl App {
-    pub fn new(tx: Sender<DiscordCommEvent>, rx: Receiver<DiscordCommEvent>) -> Self {
+    pub fn new(tx_to_dc: Sender<DiscordCommEvent>, rx_from_dc: Receiver<DiscordCommEvent>) -> Self {
         Self {
-            tx: tx,
-            rx: rx,
+            tx_to_dc: tx_to_dc,
+            rx_from_dc: rx_from_dc,
             main_frame: Frame::new(),
             text_to_send: "".to_string(),
             messages: vec![
 
             ]
         }
+    }
+
+    fn transmit_to_dc(&mut self, event: DiscordCommEvent) {
+        let tx = self.tx_to_dc.to_owned();
+
+        tokio::spawn(async move {
+            tx.send(event).await.expect("Failed to send event to Discord thread");
+        });
     }
 
     pub fn add_message(&mut self, msg: Message) {
@@ -39,14 +47,8 @@ impl App {
             return;
         }
 
-        let tx = self.tx.to_owned();
-        let text2 = text.to_owned();
+        self.transmit_to_dc(DiscordCommEvent::MessageSend(1459160075649286318, text));
 
-        tokio::spawn(async move {
-            tx.send(DiscordCommEvent::MessageSend(1459160075649286318, text2)).await.expect("send error");
-        });
-
-        
         println!("sent");
 
         self.text_to_send = String::new();
@@ -58,8 +60,8 @@ impl App {
 
     }
 
-    fn poll_events(&mut self) {
-        match self.rx.try_recv() {
+    fn poll_discord_events(&mut self) {
+        match self.rx_from_dc.try_recv() {
             Ok(event) => {
                 match event {
                     DiscordCommEvent::MessageReceived(msg) => {
@@ -69,14 +71,14 @@ impl App {
                     _ => ()
                 }
             },
-            Err(e) => ()
+            Err(_) => ()
         }
     }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.poll_events();
+        self.poll_discord_events();
 
         egui::CentralPanel::default().frame(self.main_frame).show(ctx, |ui| {
             let msgs = &self.messages;
