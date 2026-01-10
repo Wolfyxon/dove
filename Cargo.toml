@@ -1,0 +1,10 @@
+[package]
+name = "dove"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = "0.31.1" # UI thing 1
+eframe = { version = "0.31.1", features = ["default"] } # UI thing 2
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] } # Async thing
+serenity = "0.12.5" # Discord API
