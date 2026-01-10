@@ -22,7 +22,7 @@ async fn main() {
         mpsc::channel(COMM_BUFFER_SIZE);
 
     let _discord_thread = tokio::spawn(async {
-        start_discord(tx_dc_to_gui, rx_gui_to_dc).await;
+        //start_discord(tx_dc_to_gui, rx_gui_to_dc).await;
     });
 
     start_gui(tx_gui_to_dc, rx_dc_to_gui); // NOTE: egui must run on main thread
@@ -30,7 +30,7 @@ async fn main() {
 
 fn start_gui(tx_gui_to_dc: Sender<DiscordCommEvent>, rx_dc_to_gui: Receiver<DiscordCommEvent>) {
     let viewport = egui::ViewportBuilder::default()
-        .with_inner_size([520.0, 440.0])
+        .with_inner_size([400.0, 200.0])
         .with_transparent(true)
         .with_always_on_top()
         .with_decorations(false)

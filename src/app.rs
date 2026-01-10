@@ -1,3 +1,5 @@
+use core::f32;
+
 use crate::{
     discord::{DiscordCommEvent, DiscordMessage},
     utils,
@@ -50,23 +52,22 @@ impl App {
             return;
         }
 
-        self.transmit_to_dc(DiscordCommEvent::MessageSend(1459160075649286318, text));
+        self.transmit_to_dc(DiscordCommEvent::MessageSend(1459160075649286318, text.to_owned()));
 
         println!("sent");
 
         self.text_to_send = String::new();
 
-        /*self.add_message(Message {
+        self.add_message(Message {
             username: "Local".to_string(),
             text: text.to_owned()
-        });*/
+        });
     }
 
     fn poll_discord_events(&mut self) {
         match self.rx_from_dc.try_recv() {
             Ok(event) => match event {
                 DiscordCommEvent::MessageReceived(msg) => {
-                    println!("recv");
                     self.add_message(Message {
                         username: msg.author.name,
                         text: msg.content,
@@ -83,12 +84,28 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_discord_events();
 
+        egui::TopBottomPanel::bottom("bottom").show(ctx, |ui| {
+                let msg_input =
+                    TextEdit::singleline(&mut self.text_to_send).hint_text("Type your message...");
+                let msg_input_resp = ui.add_sized(ui.available_size(),msg_input);
+
+                if utils::ui::input_submitted(&msg_input_resp, &ui) {
+                    self.submit_message();
+                }
+
+                if ui.input(|inp| inp.key_down(egui::Key::Slash)) {
+                    msg_input_resp.request_focus();
+                }
+        });
+
         egui::CentralPanel::default()
             .frame(self.main_frame)
             .show(ctx, |ui| {
                 let msgs = &self.messages;
 
-                ScrollArea::vertical().show_rows(ui, 10.0, msgs.len(), |ui, row_range| {
+                let chat_scroll = ScrollArea::vertical().auto_shrink([false, false]);
+                
+                chat_scroll.show_rows(ui, 10.0, msgs.len(), |ui, row_range| {
                     for i in row_range {
                         let msg = &msgs[i];
                         let label_text = format!("{}: {}", msg.username, msg.text);
@@ -97,13 +114,6 @@ impl eframe::App for App {
                     }
                 });
 
-                let msg_input =
-                    TextEdit::singleline(&mut self.text_to_send).hint_text("Type your message...");
-                let msg_input_resp = ui.add(msg_input);
-
-                if utils::ui::input_submitted(&msg_input_resp, &ui) {
-                    self.submit_message();
-                }
             });
 
         ctx.request_repaint();
