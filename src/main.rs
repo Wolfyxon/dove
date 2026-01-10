@@ -1,22 +1,26 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{process::exit};
-use tokio::sync::mpsc::{self, Sender, Receiver};
 use eframe::egui;
+use std::process::exit;
+use tokio::sync::mpsc::{self, Receiver, Sender};
 
-use crate::{app::App, discord::{DiscordCommEvent, DiscordHandler}, utils::comm::{MPSCChannel, COMM_BUFFER_SIZE}};
+use crate::{
+    app::App,
+    discord::{DiscordCommEvent, DiscordHandler},
+    utils::comm::{COMM_BUFFER_SIZE, MPSCChannel},
+};
 
-mod utils;
 mod app;
 mod discord;
+mod utils;
 
 #[tokio::main]
 async fn main() {
+    let (tx_dc_to_gui, rx_dc_to_gui): MPSCChannel<DiscordCommEvent> =
+        mpsc::channel(COMM_BUFFER_SIZE);
+    let (tx_gui_to_dc, rx_gui_to_dc): MPSCChannel<DiscordCommEvent> =
+        mpsc::channel(COMM_BUFFER_SIZE);
 
-
-    let (tx_dc_to_gui, rx_dc_to_gui): MPSCChannel<DiscordCommEvent> = mpsc::channel(COMM_BUFFER_SIZE);
-    let (tx_gui_to_dc, rx_gui_to_dc): MPSCChannel<DiscordCommEvent> = mpsc::channel(COMM_BUFFER_SIZE);
-    
     let _discord_thread = tokio::spawn(async {
         start_discord(tx_dc_to_gui, rx_gui_to_dc).await;
     });
@@ -40,16 +44,18 @@ fn start_gui(tx_gui_to_dc: Sender<DiscordCommEvent>, rx_dc_to_gui: Receiver<Disc
     eframe::run_native(
         "Dove",
         options,
-        Box::new(|_creation_ctx| {
-            Ok(Box::new(App::new(tx_gui_to_dc, rx_dc_to_gui)))
-        }),
-    ).unwrap_or_else(|err| {
+        Box::new(|_creation_ctx| Ok(Box::new(App::new(tx_gui_to_dc, rx_dc_to_gui)))),
+    )
+    .unwrap_or_else(|err| {
         eprintln!("Start failed: {}", err);
         exit(1);
     });
 }
 
-async fn start_discord(tx_dc_to_gui: Sender<DiscordCommEvent>, rx_gui_to_dc: Receiver<DiscordCommEvent>) {
+async fn start_discord(
+    tx_dc_to_gui: Sender<DiscordCommEvent>,
+    rx_gui_to_dc: Receiver<DiscordCommEvent>,
+) {
     let token = std::env::var("DISCORD_TOKEN").expect("Missing token");
     DiscordHandler::create_loop(token, tx_dc_to_gui, rx_gui_to_dc).await;
 }
