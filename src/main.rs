@@ -34,8 +34,7 @@ fn start_gui(tx_gui_to_dc: Sender<DiscordCommEvent>, rx_dc_to_gui: Receiver<Disc
         .with_inner_size([400.0, 200.0])
         .with_transparent(true)
         .with_always_on_top()
-        .with_decorations(false)
-        .with_resizable(false);
+        /*.with_resizable(false)*/;
 
     let options = eframe::NativeOptions {
         viewport: viewport,
