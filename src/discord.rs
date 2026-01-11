@@ -5,7 +5,7 @@ use serenity::{
     all::{
         ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GuildId, Http, Message, Ready
     },
-    async_trait,
+    async_trait, futures::TryFutureExt,
 };
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::time::sleep;
@@ -23,6 +23,7 @@ pub enum DiscordCommEvent {
     MessageSend(u64, String),
     // Discord -> GUI
     Ready,
+    Error(String),
     MessageReceived(DiscordMessage),
 }
 
@@ -63,16 +64,33 @@ impl DiscordHandler {
                 Some(event) => match event {
                     DiscordCommEvent::Login(token) => {
                         let mut new_client = Self::create_client(token, tx.clone()).await;
+                        let tx2 = tx.to_owned();
 
                         http = Some(new_client.http.clone());
 
                         tokio::spawn(async move {
-                            new_client.start().await.expect("Client error");
-                        });                        
+                            let client_res = new_client.start().await;
+
+                            if let Err(e) = client_res {
+                                let event = DiscordCommEvent::Error(format!("Connection aborted: {}", e));
+                                tx2.send(event).await.expect("Error transmission failed");
+                            }
+     
+                        });
                     }
                     DiscordCommEvent::MessageSend(id, content) => {
-                        let http = &http.to_owned().expect("Client not started");
-                        ChannelId::new(id).say(http, content).await.expect("Failed to send message");
+                        let http = &http.to_owned();
+                        let tx = tx.to_owned();
+
+                        if let Some(http) = &http.to_owned() {
+                            let msg_res = ChannelId::new(id).say(http, content).await;
+
+                            if let Err(e) = msg_res {
+                                tx.send(DiscordCommEvent::Error(format!("Unable to send message: {}", e.to_string()))).await.expect("Msg error transmission failed");
+                            }
+                        } else {
+                            tx.send(DiscordCommEvent::Error("Not logged in".to_string())).await.expect("HTTP missing transmission failed");
+                        }
                     }
                     _ => (),
                 },

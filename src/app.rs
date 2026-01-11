@@ -37,19 +37,41 @@ impl App {
             commands: vec![
                 ChatCommand::one_alias("help")
                     .with_description("Shows a list of commands")
-                    .with_handler(Self::cmd_help)
+                    .with_handler(Self::cmd_help),
+                ChatCommand::one_alias("login")
+                    .with_description("Logs into Discord with the specified token")
+                    .with_handler(Self::cmd_login)
             ]
         }
     }
 
-    fn get_command(&self, alias: String) -> Option<ChatCommand> {
-        for cmd in &self.commands {
-            if cmd.aliases.contains(&alias) {
-                return Some(cmd.clone());
-            }
+    fn cmd_login(&mut self, ctx: CommandContext) {
+        let token_arg = ctx.args.get(0);
+
+        if token_arg.is_none() {
+            self.add_message(GuiMessage::Error("Token not specified".to_string()));
+            return;
         }
 
-        None
+        let mut token = token_arg.unwrap().to_owned();
+
+        if token == "env" {
+            let env_token = std::env::var("DISCORD_TOKEN");
+
+            match env_token {
+                Ok(tok) => {
+                    self.add_message(GuiMessage::Generic("Using token from env variables".to_string())); 
+                    token = tok.to_owned() 
+                },
+                Err(_) => {
+                    self.add_message(GuiMessage::Error("DISCORD_TOKEN env variable missing".to_string()));
+                    return
+                }
+            };
+        }
+
+        self.add_message(GuiMessage::Generic("Logging in...".to_string()));
+        self.transmit_to_dc(DiscordCommEvent::Login(token));
     }
 
     fn cmd_help(&mut self, _ctx: CommandContext) {
@@ -67,6 +89,16 @@ impl App {
         for msg in msgs {
             self.add_message(msg);
         }
+    }
+
+    fn get_command(&self, alias: String) -> Option<ChatCommand> {
+        for cmd in &self.commands {
+            if cmd.aliases.contains(&alias) {
+                return Some(cmd.clone());
+            }
+        }
+
+        None
     }
 
     fn add_message(&mut self, msg: GuiMessage) {
@@ -139,13 +171,19 @@ impl App {
 
         self.transmit_to_dc(DiscordCommEvent::MessageSend(1459160075649286318, text.to_owned()));
 
-        self.add_message(GuiMessage::User("local".to_string(), text.to_string()));
+        //self.add_message(GuiMessage::User("local".to_string(), text.to_string()));
         self.clear_message();
     }
 
     fn poll_discord_events(&mut self) {
         match self.rx_from_dc.try_recv() {
             Ok(event) => match event {
+                DiscordCommEvent::Ready => {
+                    self.add_message(GuiMessage::Generic("Logged in successfully".to_string()));
+                },
+                DiscordCommEvent::Error(text) => {
+                    self.add_message(GuiMessage::Error(text));
+                }
                 DiscordCommEvent::MessageReceived(msg) => {
                     self.add_message(GuiMessage::User(
                         msg.author.display_name().to_string(), 
