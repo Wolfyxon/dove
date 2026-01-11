@@ -1,4 +1,5 @@
 use core::f32;
+use std::process::exit;
 
 use crate::{
     commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, discord::{DiscordCommEvent, DiscordMessage}, utils
@@ -40,7 +41,13 @@ impl App {
                     .with_handler(Self::cmd_help),
                 ChatCommand::one_alias("login")
                     .with_description("Logs into Discord with the specified token")
-                    .with_handler(Self::cmd_login)
+                    .with_handler(Self::cmd_login),
+                ChatCommand::one_alias("clear")
+                    .with_description("Clears the chat")
+                    .with_handler(Self::cmd_clear),
+                ChatCommand::one_alias("exit")
+                    .with_description("Closes the program")
+                    .with_handler(Self::cmd_exit)
             ]
         }
     }
@@ -89,6 +96,14 @@ impl App {
         for msg in msgs {
             self.add_message(msg);
         }
+    }
+
+    fn cmd_clear(&mut self, _ctx: CommandContext) {
+        self.messages.clear();
+    }
+
+    fn cmd_exit(&mut self, _ctx: CommandContext) {
+        exit(0);
     }
 
     fn get_command(&self, alias: String) -> Option<ChatCommand> {
