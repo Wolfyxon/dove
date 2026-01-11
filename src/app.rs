@@ -5,6 +5,7 @@ use crate::{
     utils,
 };
 use egui::{Color32, Frame, RichText, ScrollArea, TextEdit};
+use regex::Regex;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
 pub struct Message {
@@ -18,6 +19,7 @@ pub struct App {
     text_to_send: String,
     tx_to_dc: Sender<DiscordCommEvent>,
     rx_from_dc: Receiver<DiscordCommEvent>,
+    token_regex: Regex
 }
 
 impl App {
@@ -28,6 +30,9 @@ impl App {
             main_frame: Frame::new(),
             text_to_send: "".to_string(),
             messages: vec![],
+            token_regex: Regex::new(
+                r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}"
+            ).expect("Invalid regex pattern for token")
         }
     }
 
@@ -49,6 +54,11 @@ impl App {
         let text = self.text_to_send.to_owned();
 
         if text.trim().is_empty() {
+            return;
+        }
+
+        if self.token_regex.is_match(&text) {
+            println!("token alert");
             return;
         }
 
