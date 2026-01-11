@@ -31,7 +31,12 @@ impl App {
             rx_from_dc: rx_from_dc,
             main_frame: Frame::new(),
             text_to_send: "".to_string(),
-            messages: vec![],
+            messages: vec![
+                GuiMessage::Generic("Welcome to Dove".to_string()),
+                GuiMessage::Generic("Contact Wolfyxon if you need help or find bugs".to_string()),
+                GuiMessage::Generic("Use /help to see a list of commands".to_string()),
+                GuiMessage::Generic("Use /login <token> to log into the chat".to_string())
+            ],
             token_regex: Regex::new(
                 r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}"
             ).expect("Invalid regex pattern for token"),
