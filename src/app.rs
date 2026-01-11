@@ -1,8 +1,7 @@
 use core::f32;
 
 use crate::{
-    discord::{DiscordCommEvent, DiscordMessage},
-    utils,
+    commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, discord::{DiscordCommEvent, DiscordMessage}, utils
 };
 use egui::{Color32, Frame, RichText, ScrollArea, Style, TextEdit, text::LayoutJob};
 use regex::Regex;
@@ -10,7 +9,8 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 
 enum GuiMessage {
     User(String, String),
-    Error(String)
+    Error(String),
+    Generic(String)
 }
 
 pub struct App {
@@ -19,7 +19,8 @@ pub struct App {
     text_to_send: String,
     tx_to_dc: Sender<DiscordCommEvent>,
     rx_from_dc: Receiver<DiscordCommEvent>,
-    token_regex: Regex
+    token_regex: Regex,
+    commands: Vec<ChatCommand>
 }
 
 impl App {
@@ -32,7 +33,39 @@ impl App {
             messages: vec![],
             token_regex: Regex::new(
                 r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}"
-            ).expect("Invalid regex pattern for token")
+            ).expect("Invalid regex pattern for token"),
+            commands: vec![
+                ChatCommand::one_alias("help")
+                    .with_description("Shows a list of commands")
+                    .with_handler(Self::cmd_help)
+            ]
+        }
+    }
+
+    fn get_command(&self, alias: String) -> Option<ChatCommand> {
+        for cmd in &self.commands {
+            if cmd.aliases.contains(&alias) {
+                return Some(cmd.clone());
+            }
+        }
+
+        None
+    }
+
+    fn cmd_help(&mut self, _ctx: CommandContext) {
+        // Rust makes me want to cry... WHY CAN'T I SIMPLY ITERATE ON A VECTOR ONCE AND CALL self.add_message() BUT I HAVE TO CREATE ANOTHER FRICKING VECTOR
+        let mut msgs: Vec<GuiMessage> = Vec::new();
+
+        for cmd in &self.commands {
+            msgs.push(
+                GuiMessage::Generic(format!(" {}: {}", cmd.aliases.join(","), cmd.description))
+            );
+        }
+
+        self.add_message(GuiMessage::Generic("Available commands:".to_string()));
+
+        for msg in msgs {
+            self.add_message(msg);
         }
     }
 
@@ -50,16 +83,56 @@ impl App {
         });
     }
 
-    pub fn submit_message(&mut self) {
+    fn clear_message(&mut self) {
+        self.text_to_send = String::new();
+    }
+
+    fn process_command(&mut self, input: String) {
+        let split: Vec<&str> = input.split_whitespace().collect();
+        
+        if split.is_empty() {
+            return;
+        }
+        
+        let alias = split[0];
+        let args: Vec<String> = split[1..]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        
+        let cmd = self.get_command(alias.to_string());
+
+        if let Some(cmd) = cmd {
+            let ctx = CommandContext {
+                alias: alias.to_string(),
+                args,
+            };
+
+            cmd.execute(self, ctx);
+        } else {
+            self.add_message(GuiMessage::Error(format!("Unknown command '{}'", alias)));
+        }
+    }
+
+    fn submit_message(&mut self) {
         let text = self.text_to_send.to_owned();
 
         if text.trim().is_empty() {
             return;
         }
 
+        if text.starts_with(COMMAND_PREFIX) {
+            let cmd_text = &text[COMMAND_PREFIX.len()..];
+
+            self.clear_message();
+            self.process_command(cmd_text.to_string());
+            
+            return;
+        }
+        
         if self.token_regex.is_match(&text) {
             self.add_message(GuiMessage::Error(
-                "Your message was not sent, because it contained a possible Discord token.".to_string())
+                "Your message was not sent, because it possibly contained Discord token.".to_string())
             );
             return;
         }
@@ -67,8 +140,7 @@ impl App {
         self.transmit_to_dc(DiscordCommEvent::MessageSend(1459160075649286318, text.to_owned()));
 
         self.add_message(GuiMessage::User("local".to_string(), text.to_string()));
-
-        self.text_to_send = String::new();
+        self.clear_message();
     }
 
     fn poll_discord_events(&mut self) {
@@ -117,6 +189,9 @@ impl eframe::App for App {
                         let msg = &msgs[i];
 
                         match msg {
+                            GuiMessage::Generic(text) => {
+                                ui.label(text);
+                            }
                             GuiMessage::User(name, text) => {
                                 ui.label(RichText::new(format!("{}: {}", name, text)).color(Color32::WHITE));
                             },
