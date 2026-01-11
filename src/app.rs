@@ -2,11 +2,11 @@ use core::f32;
 use std::process::exit;
 
 use crate::{
-    commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, discord::{DiscordCommEvent, DiscordMessage}, utils
+    commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, discord::{DiscordCommEvent}, utils
 };
-use egui::{Color32, Frame, RichText, ScrollArea, Style, TextEdit, text::LayoutJob};
+use egui::{Color32, Frame, RichText, ScrollArea, TextEdit};
 use regex::Regex;
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 enum GuiMessage {
     User(String, String),
@@ -156,8 +156,7 @@ impl App {
 
         if let Some(cmd) = cmd {
             let ctx = CommandContext {
-                alias: alias.to_string(),
-                args,
+                args
             };
 
             cmd.execute(self, ctx);

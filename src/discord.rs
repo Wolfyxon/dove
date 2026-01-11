@@ -1,18 +1,13 @@
-use std::{sync::Arc, thread::JoinHandle};
+use std::{sync::Arc};
 
 use serenity::{
-    Client, FutureExt,
+    Client,
     all::{
-        ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GuildId, Http, Message, Ready
+        ChannelId, Context, EventHandler, GatewayIntents, GuildId, Http, Message, Ready
     },
-    async_trait, futures::TryFutureExt,
+    async_trait,
 };
-use tokio::sync::mpsc::{self, Receiver, Sender};
-use tokio::time::sleep;
-
-use crate::utils::comm::MPSCChannel;
-
-type OnMessageHandler = fn(msg: Message) -> ();
+use tokio::sync::mpsc::{Receiver, Sender};
 
 pub type DiscordMessage = serenity::all::Message;
 
@@ -45,7 +40,7 @@ impl DiscordHandler {
             | GatewayIntents::GUILDS
             | GatewayIntents::MESSAGE_CONTENT;
 
-        let mut client = Client::builder(token, intents)
+        let client = Client::builder(token, intents)
             .event_handler(Self { tx: tx })
             .await
             .expect("Client error");
@@ -102,18 +97,18 @@ impl DiscordHandler {
 
 #[async_trait]
 impl EventHandler for DiscordHandler {
-    async fn message(&self, ctx: Context, msg: Message) {
+    async fn message(&self, _ctx: Context, msg: Message) {
         println!("Received {}", &msg.content);
 
         self.transmit_to_gui(DiscordCommEvent::MessageReceived(msg))
             .await;
     }
 
-    async fn ready(&self, ctx: Context, ready: Ready) {
+    async fn ready(&self, _ctx: Context, _ready: Ready) {
         println!("Discord ready")
     }
 
-    async fn cache_ready(&self, ctx: Context, _guilds: Vec<GuildId>) {
+    async fn cache_ready(&self, _ctx: Context, _guilds: Vec<GuildId>) {
         println!("Discord cache ready");
         self.transmit_to_gui(DiscordCommEvent::Ready).await;
     }

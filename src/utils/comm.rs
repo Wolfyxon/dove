@@ -1,4 +1,4 @@
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc::{self};
 
 pub type MPSCChannel<T> = (mpsc::Sender<T>, mpsc::Receiver<T>);
 

@@ -3,7 +3,6 @@ use crate::app::App;
 pub const COMMAND_PREFIX: &str = "/";
 
 pub struct CommandContext {
-    pub alias: String,
     pub args: Vec<String>
 }
 
@@ -19,7 +18,7 @@ impl ChatCommand {
         Self {
             aliases: vec![alias.into()],
             description: "".to_string(),
-            handler: |slf, ctx| panic!("damn")
+            handler: |_, _| panic!("Command handler not implemented")
         }
     }
 
