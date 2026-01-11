@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::{sync::Arc, thread::JoinHandle};
 
 use serenity::{
     Client, FutureExt,
     all::{
-        ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GuildId, Message, Ready,
+        ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GuildId, Http, Message, Ready
     },
     async_trait,
 };
@@ -18,8 +18,11 @@ pub type DiscordMessage = serenity::all::Message;
 
 #[derive(Debug)]
 pub enum DiscordCommEvent {
-    Ready,
+    // GUI -> Discord
+    Login(String),
     MessageSend(u64, String),
+    // Discord -> GUI
+    Ready,
     MessageReceived(DiscordMessage),
 }
 
@@ -28,7 +31,7 @@ pub struct DiscordHandler {
 }
 
 impl DiscordHandler {
-    pub async fn transmit_to_gui(&self, event: DiscordCommEvent) {
+    async fn transmit_to_gui(&self, event: DiscordCommEvent) {
         let tx = &self.tx;
 
         tx.send(event).await.unwrap_or_else(|err| {
@@ -36,11 +39,7 @@ impl DiscordHandler {
         });
     }
 
-    pub async fn create_loop(
-        token: String,
-        tx: Sender<DiscordCommEvent>,
-        mut rx: Receiver<DiscordCommEvent>,
-    ) {
+    async fn create_client(token: String, tx: Sender<DiscordCommEvent>) -> Client {
         let intents = GatewayIntents::GUILD_MESSAGES
             | GatewayIntents::GUILDS
             | GatewayIntents::MESSAGE_CONTENT;
@@ -50,17 +49,30 @@ impl DiscordHandler {
             .await
             .expect("Client error");
 
-        let http2 = client.http.clone();
+        client
+    }
 
-        tokio::spawn(async move {
-            client.start().await.expect("Client error");
-        });
+    pub async fn create_loop(
+        tx: Sender<DiscordCommEvent>,
+        mut rx: Receiver<DiscordCommEvent>,
+    ) {
+        let mut http: Option<Arc<Http>> = None;
 
         loop {
             match rx.recv().await {
                 Some(event) => match event {
+                    DiscordCommEvent::Login(token) => {
+                        let mut new_client = Self::create_client(token, tx.clone()).await;
+
+                        http = Some(new_client.http.clone());
+
+                        tokio::spawn(async move {
+                            new_client.start().await.expect("Client error");
+                        });                        
+                    }
                     DiscordCommEvent::MessageSend(id, content) => {
-                        ChannelId::new(id).say(&http2, content).await.expect("shit");
+                        let http = &http.to_owned().expect("Client not started");
+                        ChannelId::new(id).say(http, content).await.expect("Failed to send message");
                     }
                     _ => (),
                 },

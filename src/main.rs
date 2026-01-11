@@ -23,7 +23,7 @@ async fn main() {
         mpsc::channel(COMM_BUFFER_SIZE);
 
     let _discord_thread = tokio::spawn(async {
-        //start_discord(tx_dc_to_gui, rx_gui_to_dc).await;
+        start_discord(tx_dc_to_gui, rx_gui_to_dc).await;
     });
 
     start_gui(tx_gui_to_dc, rx_dc_to_gui); // NOTE: egui must run on main thread
@@ -57,6 +57,5 @@ async fn start_discord(
     tx_dc_to_gui: Sender<DiscordCommEvent>,
     rx_gui_to_dc: Receiver<DiscordCommEvent>,
 ) {
-    let token = std::env::var("DISCORD_TOKEN").expect("Missing token");
-    DiscordHandler::create_loop(token, tx_dc_to_gui, rx_gui_to_dc).await;
+    DiscordHandler::create_loop(tx_dc_to_gui, rx_gui_to_dc).await;
 }
