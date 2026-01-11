@@ -9,3 +9,4 @@ eframe = { version = "0.31.1", features = ["default"] } # UI thing 2
 tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] } # Async thing
 serenity = "0.12.5" # Discord API
 regex = "1.12.2"
+global-hotkey = "0.7.0"

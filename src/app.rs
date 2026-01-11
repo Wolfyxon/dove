@@ -5,6 +5,7 @@ use crate::{
     commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, discord::{DiscordCommEvent}, utils
 };
 use egui::{Color32, Frame, RichText, ScrollArea, TextEdit};
+use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyEventReceiver, GlobalHotKeyManager, hotkey::{self, HotKey}};
 use regex::Regex;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -21,25 +22,38 @@ pub struct App {
     tx_to_dc: Sender<DiscordCommEvent>,
     rx_from_dc: Receiver<DiscordCommEvent>,
     token_regex: Regex,
-    commands: Vec<ChatCommand>
+    commands: Vec<ChatCommand>,
+    global_key_receiver: &'static GlobalHotKeyEventReceiver,
+    open_chat_hotkey: HotKey,
+    #[allow(dead_code)]
+    global_key_manager: GlobalHotKeyManager // Must be kept in memory
 }
 
 impl App {
     pub fn new(tx_to_dc: Sender<DiscordCommEvent>, rx_from_dc: Receiver<DiscordCommEvent>) -> Self {
+        let key_manager = GlobalHotKeyManager::new().expect("Failed to create global hot key manager");
+        let key = HotKey::new(Some(hotkey::Modifiers::CONTROL), hotkey::Code::Slash);
+        let key_receiver = GlobalHotKeyEvent::receiver();
+
+        key_manager.register(key).expect("Failed to register chat hotkey");
+
         Self {
             tx_to_dc: tx_to_dc,
             rx_from_dc: rx_from_dc,
             main_frame: Frame::new(),
             text_to_send: "".to_string(),
+            global_key_manager: key_manager,
+            global_key_receiver: key_receiver,
+            open_chat_hotkey: key,
+            token_regex: Regex::new(
+                r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}"
+            ).expect("Invalid regex pattern for token"),
             messages: vec![
                 GuiMessage::Generic("Welcome to Dove".to_string()),
                 GuiMessage::Generic("Contact Wolfyxon if you need help or find bugs".to_string()),
                 GuiMessage::Generic("Use /help to see a list of commands".to_string()),
                 GuiMessage::Generic("Use /login <token> to log into the chat".to_string())
             ],
-            token_regex: Regex::new(
-                r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}"
-            ).expect("Invalid regex pattern for token"),
             commands: vec![
                 ChatCommand::one_alias("help")
                     .with_description("Shows a list of commands")
@@ -194,6 +208,16 @@ impl App {
         self.clear_message();
     }
 
+    fn poll_global_hotkeys(&mut self) -> bool {
+        if let Ok(event) = self.global_key_receiver.try_recv() {
+            if event.id == self.open_chat_hotkey.id {
+                return true;
+            }
+        }
+
+        false
+    }
+
     fn poll_discord_events(&mut self) {
         match self.rx_from_dc.try_recv() {
             Ok(event) => match event {
@@ -230,6 +254,11 @@ impl eframe::App for App {
                 }
 
                 if ui.input(|inp| inp.key_down(egui::Key::Slash)) {
+                    msg_input_resp.request_focus();
+                }
+
+                if self.poll_global_hotkeys() {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                     msg_input_resp.request_focus();
                 }
         });
