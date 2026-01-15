@@ -4,7 +4,7 @@ use std::process::exit;
 use crate::{
     commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, discord::{DiscordCommEvent}, utils
 };
-use egui::{Color32, Frame, RichText, ScrollArea, TextEdit};
+use egui::{Color32, Frame, RichText, ScrollArea, TextEdit, Ui};
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyEventReceiver, GlobalHotKeyManager, hotkey::{self, HotKey}};
 use regex::Regex;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -238,6 +238,20 @@ impl App {
             Err(_) => (),
         }
     }
+
+    fn add_label_for_message(ui: &mut Ui, message: &GuiMessage) {
+        match message {
+            GuiMessage::Generic(text) => {
+                ui.label(text);
+            }
+            GuiMessage::User(name, text) => {
+                ui.label(RichText::new(format!("{}: {}", name, text)).color(Color32::WHITE));
+            },
+            GuiMessage::Error(text) => {
+                ui.label(RichText::new(text).color(Color32::RED));
+            }
+        };
+    }
 }
 
 impl eframe::App for App {
@@ -267,24 +281,12 @@ impl eframe::App for App {
             .frame(self.main_frame)
             .show(ctx, |ui| {
                 let msgs = &self.messages;
-
                 let chat_scroll = ScrollArea::vertical().auto_shrink([false, false]);
                 
                 chat_scroll.show_rows(ui, 10.0, msgs.len(), |ui, row_range| {
                     for i in row_range {
                         let msg = &msgs[i];
-
-                        match msg {
-                            GuiMessage::Generic(text) => {
-                                ui.label(text);
-                            }
-                            GuiMessage::User(name, text) => {
-                                ui.label(RichText::new(format!("{}: {}", name, text)).color(Color32::WHITE));
-                            },
-                            GuiMessage::Error(text) => {
-                                ui.label(RichText::new(text).color(Color32::RED));
-                            }
-                        }
+                        Self::add_label_for_message(ui, msg);
                     }
                 });
 
