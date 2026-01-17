@@ -3,7 +3,7 @@ use std::{sync::Arc};
 use serenity::{
     Client,
     all::{
-        ChannelId, Context, EventHandler, GatewayIntents, GuildId, Http, Message, Ready
+        ChannelId, Context, EventHandler, GatewayError, GatewayIntents, GuildId, Http, Message, Ready
     },
     async_trait,
 };
@@ -67,7 +67,15 @@ impl DiscordHandler {
                             let client_res = new_client.start().await;
 
                             if let Err(e) = client_res {
-                                let event = DiscordCommEvent::Error(format!("Connection aborted: {}", e));
+                                let mut error_string = format!("{:?}: {}", e, e);
+
+                                if let serenity::Error::Gateway(e) = e {
+                                    if matches!(e, GatewayError::InvalidAuthentication) {
+                                        error_string = "Invalid token".to_string();
+                                    }
+                                }
+
+                                let event = DiscordCommEvent::Error(error_string);
                                 tx2.send(event).await.expect("Error transmission failed");
                             }
      
