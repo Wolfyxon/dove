@@ -39,6 +39,16 @@ impl DiscordManager {
         }
     }
 
+    async fn send_to_gui(&self, event: DiscordCommEvent) {
+        Self::tx_send(&self.tx, event).await;
+    }
+
+    async fn tx_send(tx: &Sender<DiscordCommEvent>, event: DiscordCommEvent) {
+        tx.send(event).await.unwrap_or_else(|err| {
+            eprintln!("Failed to send DiscordManager -> App: {:?}", err);
+        });
+    }
+
     async fn start_client(&self, token: String) {
         let mut new_client = Self::new_client(token, self.tx.clone()).await;
         let tx = self.tx.clone();
@@ -65,15 +75,14 @@ impl DiscordManager {
                 }
 
                 let event = DiscordCommEvent::Error(error_string);
-                tx.send(event).await.expect("Error transmission failed");
+                Self::tx_send(&tx, event).await;
             }
         });
     }
 
     pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
         self.http_mutex = Arc::new(Mutex::new(None));
-        let tx = self.tx.clone();
-
+        
         loop {
             match rx.recv().await {
                 Some(event) => match event {
@@ -82,23 +91,18 @@ impl DiscordManager {
                     }
                     DiscordCommEvent::MessageSend(id, content) => {
                         let http = self.http_mutex.lock().await;
-                        let tx = tx.to_owned();
-
+                        
                         if let Some(http) = &http.to_owned() {
                             let msg_res = ChannelId::new(id).say(http, content).await;
 
                             if let Err(e) = msg_res {
-                                tx.send(DiscordCommEvent::Error(format!(
+                                self.send_to_gui(DiscordCommEvent::Error(format!(
                                     "Unable to send message: {}",
                                     e.to_string()
-                                )))
-                                .await
-                                .expect("Msg error transmission failed");
+                                ))).await;
                             }
                         } else {
-                            tx.send(DiscordCommEvent::Error("Not logged in".to_string()))
-                                .await
-                                .expect("HTTP missing transmission failed");
+                            self.send_to_gui(DiscordCommEvent::Error("Not logged in".to_string())).await;
                         }
                     }
                     _ => (),
@@ -127,11 +131,11 @@ pub struct DiscordHandler {
 }
 
 impl DiscordHandler {
-    async fn transmit_to_gui(&self, event: DiscordCommEvent) {
+    async fn send_to_gui(&self, event: DiscordCommEvent) {
         let tx = &self.tx;
 
         tx.send(event).await.unwrap_or_else(|err| {
-            eprintln!("Failed to transmit event {}", err);
+            eprintln!("Failed to send DiscordHandler -> App: {:?}", err);
         });
     }
 }
@@ -141,7 +145,7 @@ impl EventHandler for DiscordHandler {
     async fn message(&self, _ctx: Context, msg: Message) {
         println!("Received {}", &msg.content);
 
-        self.transmit_to_gui(DiscordCommEvent::MessageReceived(msg))
+        self.send_to_gui(DiscordCommEvent::MessageReceived(msg))
             .await;
     }
 
@@ -151,6 +155,6 @@ impl EventHandler for DiscordHandler {
 
     async fn cache_ready(&self, _ctx: Context, _guilds: Vec<GuildId>) {
         println!("Discord cache ready");
-        self.transmit_to_gui(DiscordCommEvent::Ready).await;
+        self.send_to_gui(DiscordCommEvent::Ready).await;
     }
 }
