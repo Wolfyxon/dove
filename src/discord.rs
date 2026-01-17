@@ -28,52 +28,60 @@ pub enum DiscordCommEvent {
 
 pub struct DiscordManager {
     tx: Sender<DiscordCommEvent>,
+    http_mutex: Arc<Mutex<Option<Arc<Http>>>>
 }
 
 impl DiscordManager {
     pub fn new(tx: Sender<DiscordCommEvent>) -> Self {
-        Self { tx: tx }
+        Self { 
+            tx: tx,
+            http_mutex: Arc::new(Mutex::new(None)) 
+        }
     }
 
-    pub async fn start(&self, mut rx: Receiver<DiscordCommEvent>) {
-        let http_mutex: Arc<Mutex<Option<Arc<Http>>>> = Arc::new(Mutex::new(None));
+    async fn start_client(&self, token: String) {
+        let mut new_client = Self::new_client(token, self.tx.clone()).await;
+        let tx = self.tx.clone();
+
+        let http_mutex = self.http_mutex.clone();
+        let http_mutex2 = self.http_mutex.clone();
+
+        let mut http = http_mutex.lock().await;
+        *http = Some(new_client.http.clone());
+
+        tokio::spawn(async move {
+            let client_res = new_client.start().await;
+
+            let mut http_mutex = http_mutex2.lock().await;
+            *http_mutex = None;
+
+            if let Err(e) = client_res {
+                let mut error_string = format!("{:?}: {}", e, e);
+
+                if let serenity::Error::Gateway(e) = e {
+                    if matches!(e, GatewayError::InvalidAuthentication) {
+                        error_string = "Invalid token".to_string();
+                    }
+                }
+
+                let event = DiscordCommEvent::Error(error_string);
+                tx.send(event).await.expect("Error transmission failed");
+            }
+        });
+    }
+
+    pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
+        self.http_mutex = Arc::new(Mutex::new(None));
         let tx = self.tx.clone();
 
         loop {
             match rx.recv().await {
                 Some(event) => match event {
                     DiscordCommEvent::Login(token) => {
-                        let mut new_client = Self::new_client(token, tx.clone()).await;
-                        let tx2 = tx.to_owned();
-
-                        let http_mutex = http_mutex.clone();
-                        let http_mutex2 = http_mutex.clone();
-
-                        let mut http = http_mutex.lock().await;
-                        *http = Some(new_client.http.clone());
-
-                        tokio::spawn(async move {
-                            let client_res = new_client.start().await;
-
-                            let mut http_mutex = http_mutex2.lock().await;
-                            *http_mutex = None;
-
-                            if let Err(e) = client_res {
-                                let mut error_string = format!("{:?}: {}", e, e);
-
-                                if let serenity::Error::Gateway(e) = e {
-                                    if matches!(e, GatewayError::InvalidAuthentication) {
-                                        error_string = "Invalid token".to_string();
-                                    }
-                                }
-
-                                let event = DiscordCommEvent::Error(error_string);
-                                tx2.send(event).await.expect("Error transmission failed");
-                            }
-                        });
+                       self.start_client(token).await;
                     }
                     DiscordCommEvent::MessageSend(id, content) => {
-                        let http = http_mutex.lock().await;
+                        let http = self.http_mutex.lock().await;
                         let tx = tx.to_owned();
 
                         if let Some(http) = &http.to_owned() {

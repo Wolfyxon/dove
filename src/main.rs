@@ -56,6 +56,6 @@ async fn start_discord(
     tx_dc_to_gui: Sender<DiscordCommEvent>,
     rx_gui_to_dc: Receiver<DiscordCommEvent>,
 ) {
-    let mgr = DiscordManager::new(tx_dc_to_gui);
+    let mut mgr = DiscordManager::new(tx_dc_to_gui);
     mgr.start(rx_gui_to_dc).await;
 }
