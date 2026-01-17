@@ -80,17 +80,24 @@ impl DiscordManager {
         });
     }
 
-    pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
+    async fn unset_http(&mut self) {
         let mut http = self.http_mutex.lock().await;
         *http = None;
+    }
 
+    pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
+        self.unset_http().await;
+        // Important: http_mutex must not be locked and kept here, or other functions that use it will freeze
+        
         loop {
             match rx.recv().await {
                 Some(event) => match event {
                     DiscordCommEvent::Login(token) => {
                        self.start_client(token).await;
                     }
-                    DiscordCommEvent::MessageSend(id, content) => {                        
+                    DiscordCommEvent::MessageSend(id, content) => {      
+                        let http = self.http_mutex.lock().await;
+                        
                         if let Some(http) = &http.to_owned() {
                             let msg_res = ChannelId::new(id).say(http, content).await;
 
