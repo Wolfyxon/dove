@@ -7,7 +7,7 @@ use serenity::{
     },
     async_trait,
 };
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{Mutex, mpsc::{Receiver, Sender}};
 
 pub type DiscordMessage = serenity::all::Message;
 
@@ -52,7 +52,7 @@ impl DiscordHandler {
         tx: Sender<DiscordCommEvent>,
         mut rx: Receiver<DiscordCommEvent>,
     ) {
-        let mut http: Option<Arc<Http>> = None;
+        let http_mutex: Arc<Mutex<Option<Arc<Http>>>> = Arc::new(Mutex::new(None));
 
         loop {
             match rx.recv().await {
@@ -61,10 +61,17 @@ impl DiscordHandler {
                         let mut new_client = Self::create_client(token, tx.clone()).await;
                         let tx2 = tx.to_owned();
 
-                        http = Some(new_client.http.clone());
+                        let http_mutex = http_mutex.clone();
+                        let http_mutex2 = http_mutex.clone();
+                        
+                        let mut http = http_mutex.lock().await;
+                        *http = Some(new_client.http.clone());
 
                         tokio::spawn(async move {
                             let client_res = new_client.start().await;
+
+                            let mut http_mutex = http_mutex2.lock().await;
+                            *http_mutex = None;
 
                             if let Err(e) = client_res {
                                 let mut error_string = format!("{:?}: {}", e, e);
@@ -82,7 +89,7 @@ impl DiscordHandler {
                         });
                     }
                     DiscordCommEvent::MessageSend(id, content) => {
-                        let http = &http.to_owned();
+                        let http = http_mutex.lock().await;
                         let tx = tx.to_owned();
 
                         if let Some(http) = &http.to_owned() {
