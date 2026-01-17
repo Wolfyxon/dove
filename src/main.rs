@@ -11,8 +11,8 @@ use crate::{
 };
 
 mod app;
-mod discord;
 mod commands;
+mod discord;
 mod utils;
 
 #[tokio::main]

@@ -2,17 +2,22 @@ use core::f32;
 use std::process::exit;
 
 use crate::{
-    commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, discord::{DiscordCommEvent}, utils
+    commands::{COMMAND_PREFIX, ChatCommand, CommandContext},
+    discord::DiscordCommEvent,
+    utils,
 };
 use egui::{Color32, Frame, RichText, ScrollArea, TextEdit, Ui};
-use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyEventReceiver, GlobalHotKeyManager, hotkey::{self, HotKey}};
+use global_hotkey::{
+    GlobalHotKeyEvent, GlobalHotKeyEventReceiver, GlobalHotKeyManager,
+    hotkey::{self, HotKey},
+};
 use regex::Regex;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 enum GuiMessage {
     User(String, String),
     Error(String),
-    Generic(String)
+    Generic(String),
 }
 
 pub struct App {
@@ -26,16 +31,19 @@ pub struct App {
     global_key_receiver: &'static GlobalHotKeyEventReceiver,
     open_chat_hotkey: HotKey,
     #[allow(dead_code)]
-    global_key_manager: GlobalHotKeyManager // Must be kept in memory
+    global_key_manager: GlobalHotKeyManager, // Must be kept in memory
 }
 
 impl App {
     pub fn new(tx_to_dc: Sender<DiscordCommEvent>, rx_from_dc: Receiver<DiscordCommEvent>) -> Self {
-        let key_manager = GlobalHotKeyManager::new().expect("Failed to create global hot key manager");
+        let key_manager =
+            GlobalHotKeyManager::new().expect("Failed to create global hot key manager");
         let key = HotKey::new(Some(hotkey::Modifiers::CONTROL), hotkey::Code::Slash);
         let key_receiver = GlobalHotKeyEvent::receiver();
 
-        key_manager.register(key).expect("Failed to register chat hotkey");
+        key_manager
+            .register(key)
+            .expect("Failed to register chat hotkey");
 
         Self {
             tx_to_dc: tx_to_dc,
@@ -45,14 +53,15 @@ impl App {
             global_key_manager: key_manager,
             global_key_receiver: key_receiver,
             open_chat_hotkey: key,
-            token_regex: Regex::new(
-                r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}"
-            ).expect("Invalid regex pattern for token"),
+            token_regex: Regex::new(r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}")
+                .expect("Invalid regex pattern for token"),
             messages: vec![
                 GuiMessage::Generic("Welcome to Dove".to_string()),
                 GuiMessage::Generic("Contact Wolfyxon if you need help or find bugs".to_string()),
-                GuiMessage::Generic("Please note that this is an early test version and things may change soon.\n".to_string()),
-
+                GuiMessage::Generic(
+                    "Please note that this is an early test version and things may change soon.\n"
+                        .to_string(),
+                ),
                 GuiMessage::Generic("Use /help to see a list of commands".to_string()),
                 GuiMessage::Generic("Use /login <token> to log into the chat".to_string()),
                 GuiMessage::Generic("Do not show your token to anyone!".to_string()),
@@ -69,8 +78,8 @@ impl App {
                     .with_handler(Self::cmd_clear),
                 ChatCommand::one_alias("exit")
                     .with_description("Closes the program")
-                    .with_handler(Self::cmd_exit)
-            ]
+                    .with_handler(Self::cmd_exit),
+            ],
         }
     }
 
@@ -89,12 +98,16 @@ impl App {
 
             match env_token {
                 Ok(tok) => {
-                    self.add_message(GuiMessage::Generic("Using token from env variables".to_string())); 
-                    token = tok.to_owned() 
-                },
+                    self.add_message(GuiMessage::Generic(
+                        "Using token from env variables".to_string(),
+                    ));
+                    token = tok.to_owned()
+                }
                 Err(_) => {
-                    self.add_message(GuiMessage::Error("DISCORD_TOKEN env variable missing".to_string()));
-                    return
+                    self.add_message(GuiMessage::Error(
+                        "DISCORD_TOKEN env variable missing".to_string(),
+                    ));
+                    return;
                 }
             };
         }
@@ -107,9 +120,11 @@ impl App {
         let mut msgs: Vec<GuiMessage> = Vec::new();
 
         for cmd in &self.commands {
-            msgs.push(
-                GuiMessage::Generic(format!(" {}: {}", cmd.aliases.join(","), cmd.description))
-            );
+            msgs.push(GuiMessage::Generic(format!(
+                " {}: {}",
+                cmd.aliases.join(","),
+                cmd.description
+            )));
         }
 
         self.add_message(GuiMessage::Generic("Available commands:".to_string()));
@@ -157,23 +172,18 @@ impl App {
 
     fn process_command(&mut self, input: String) {
         let split: Vec<&str> = input.split_whitespace().collect();
-        
+
         if split.is_empty() {
             return;
         }
-        
+
         let alias = split[0];
-        let args: Vec<String> = split[1..]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        
+        let args: Vec<String> = split[1..].iter().map(|s| s.to_string()).collect();
+
         let cmd = self.get_command(alias.to_string());
 
         if let Some(cmd) = cmd {
-            let ctx = CommandContext {
-                args
-            };
+            let ctx = CommandContext { args };
 
             cmd.execute(self, ctx);
         } else {
@@ -193,18 +203,22 @@ impl App {
 
             self.clear_message();
             self.process_command(cmd_text.to_string());
-            
-            return;
-        }
-        
-        if self.token_regex.is_match(&text) {
-            self.add_message(GuiMessage::Error(
-                "Your message was not sent, because it possibly contained Discord token.".to_string())
-            );
+
             return;
         }
 
-        self.transmit_to_dc(DiscordCommEvent::MessageSend(1459160075649286318, text.to_owned()));
+        if self.token_regex.is_match(&text) {
+            self.add_message(GuiMessage::Error(
+                "Your message was not sent, because it possibly contained Discord token."
+                    .to_string(),
+            ));
+            return;
+        }
+
+        self.transmit_to_dc(DiscordCommEvent::MessageSend(
+            1459160075649286318,
+            text.to_owned(),
+        ));
 
         //self.add_message(GuiMessage::User("local".to_string(), text.to_string()));
         self.clear_message();
@@ -225,14 +239,18 @@ impl App {
             Ok(event) => match event {
                 DiscordCommEvent::Ready => {
                     self.add_message(GuiMessage::Generic("Logged in successfully".to_string()));
-                },
+                }
                 DiscordCommEvent::Error(text) => {
                     self.add_message(GuiMessage::Error(text));
                 }
                 DiscordCommEvent::MessageReceived(msg) => {
                     self.add_message(GuiMessage::User(
-                        msg.author.display_name().replace("[dove]", "").trim().to_string(), 
-                        msg.content
+                        msg.author
+                            .display_name()
+                            .replace("[dove]", "")
+                            .trim()
+                            .to_string(),
+                        msg.content,
                     ));
                 }
                 _ => (),
@@ -248,7 +266,7 @@ impl App {
             }
             GuiMessage::User(name, text) => {
                 ui.label(RichText::new(format!("{}: {}", name, text)).color(Color32::WHITE));
-            },
+            }
             GuiMessage::Error(text) => {
                 ui.label(RichText::new(text).color(Color32::RED));
             }
@@ -261,22 +279,22 @@ impl eframe::App for App {
         self.poll_discord_events();
 
         egui::TopBottomPanel::bottom("bottom").show(ctx, |ui| {
-                let msg_input =
-                    TextEdit::singleline(&mut self.text_to_send).hint_text("Type your message...");
-                let msg_input_resp = ui.add_sized(ui.available_size(),msg_input);
+            let msg_input =
+                TextEdit::singleline(&mut self.text_to_send).hint_text("Type your message...");
+            let msg_input_resp = ui.add_sized(ui.available_size(), msg_input);
 
-                if utils::ui::input_submitted(&msg_input_resp, &ui) {
-                    self.submit_message();
-                }
+            if utils::ui::input_submitted(&msg_input_resp, &ui) {
+                self.submit_message();
+            }
 
-                if ui.input(|inp| inp.key_down(egui::Key::Slash)) {
-                    msg_input_resp.request_focus();
-                }
+            if ui.input(|inp| inp.key_down(egui::Key::Slash)) {
+                msg_input_resp.request_focus();
+            }
 
-                if self.poll_global_hotkeys() {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-                    msg_input_resp.request_focus();
-                }
+            if self.poll_global_hotkeys() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                msg_input_resp.request_focus();
+            }
         });
 
         egui::CentralPanel::default()
@@ -284,14 +302,13 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 let msgs = &self.messages;
                 let chat_scroll = ScrollArea::vertical().auto_shrink([false, false]);
-                
+
                 chat_scroll.show_rows(ui, 10.0, msgs.len(), |ui, row_range| {
                     for i in row_range {
                         let msg = &msgs[i];
                         Self::add_label_for_message(ui, msg);
                     }
                 });
-
             });
 
         ctx.request_repaint();

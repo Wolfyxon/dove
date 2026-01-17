@@ -3,14 +3,14 @@ use crate::app::App;
 pub const COMMAND_PREFIX: &str = "/";
 
 pub struct CommandContext {
-    pub args: Vec<String>
+    pub args: Vec<String>,
 }
 
 #[derive(Clone)]
 pub struct ChatCommand {
     pub aliases: Vec<String>,
     pub description: String,
-    handler: fn(&mut App, CommandContext) -> ()
+    handler: fn(&mut App, CommandContext) -> (),
 }
 
 impl ChatCommand {
@@ -18,7 +18,7 @@ impl ChatCommand {
         Self {
             aliases: vec![alias.into()],
             description: "".to_string(),
-            handler: |_, _| panic!("Command handler not implemented")
+            handler: |_, _| panic!("Command handler not implemented"),
         }
     }
 
