@@ -22,43 +22,29 @@ pub enum DiscordCommEvent {
     MessageReceived(DiscordMessage),
 }
 
-pub struct DiscordHandler {
-    tx: Sender<DiscordCommEvent>,
+pub struct DiscordManager {
+    tx: Sender<DiscordCommEvent>
 }
 
-impl DiscordHandler {
-    async fn transmit_to_gui(&self, event: DiscordCommEvent) {
-        let tx = &self.tx;
-
-        tx.send(event).await.unwrap_or_else(|err| {
-            eprintln!("Failed to transmit event {}", err);
-        });
+impl DiscordManager {
+    pub fn new(tx: Sender<DiscordCommEvent>) -> Self {
+        Self {
+            tx: tx
+        }
     }
 
-    async fn create_client(token: String, tx: Sender<DiscordCommEvent>) -> Client {
-        let intents = GatewayIntents::GUILD_MESSAGES
-            | GatewayIntents::GUILDS
-            | GatewayIntents::MESSAGE_CONTENT;
-
-        let client = Client::builder(token, intents)
-            .event_handler(Self { tx: tx })
-            .await
-            .expect("Client error");
-
-        client
-    }
-
-    pub async fn create_loop(
-        tx: Sender<DiscordCommEvent>,
+    pub async fn start(
+        &self,
         mut rx: Receiver<DiscordCommEvent>,
     ) {
         let http_mutex: Arc<Mutex<Option<Arc<Http>>>> = Arc::new(Mutex::new(None));
+        let tx = self.tx.clone();
 
         loop {
             match rx.recv().await {
                 Some(event) => match event {
                     DiscordCommEvent::Login(token) => {
-                        let mut new_client = Self::create_client(token, tx.clone()).await;
+                        let mut new_client = Self::new_client(token, tx.clone()).await;
                         let tx2 = tx.to_owned();
 
                         let http_mutex = http_mutex.clone();
@@ -107,6 +93,33 @@ impl DiscordHandler {
                 None => (),
             };
         }
+    }
+
+    async fn new_client(token: String, tx: Sender<DiscordCommEvent>) -> Client {
+        let intents = GatewayIntents::GUILD_MESSAGES
+            | GatewayIntents::GUILDS
+            | GatewayIntents::MESSAGE_CONTENT;
+
+        let client = Client::builder(token, intents)
+            .event_handler(DiscordHandler { tx: tx })
+            .await
+            .expect("Client error");
+
+        client
+    }
+}
+
+pub struct DiscordHandler {
+    tx: Sender<DiscordCommEvent>,
+}
+
+impl DiscordHandler {
+    async fn transmit_to_gui(&self, event: DiscordCommEvent) {
+        let tx = &self.tx;
+
+        tx.send(event).await.unwrap_or_else(|err| {
+            eprintln!("Failed to transmit event {}", err);
+        });
     }
 }
 

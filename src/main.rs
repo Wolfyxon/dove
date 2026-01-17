@@ -6,7 +6,7 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use crate::{
     app::App,
-    discord::{DiscordCommEvent, DiscordHandler},
+    discord::{DiscordCommEvent, DiscordManager},
     utils::comm::{COMM_BUFFER_SIZE, MPSCChannel},
 };
 
@@ -56,5 +56,6 @@ async fn start_discord(
     tx_dc_to_gui: Sender<DiscordCommEvent>,
     rx_gui_to_dc: Receiver<DiscordCommEvent>,
 ) {
-    DiscordHandler::create_loop(tx_dc_to_gui, rx_gui_to_dc).await;
+    let mgr = DiscordManager::new(tx_dc_to_gui);
+    mgr.start(rx_gui_to_dc).await;
 }
