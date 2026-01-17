@@ -81,17 +81,16 @@ impl DiscordManager {
     }
 
     pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
-        self.http_mutex = Arc::new(Mutex::new(None));
-        
+        let mut http = self.http_mutex.lock().await;
+        *http = None;
+
         loop {
             match rx.recv().await {
                 Some(event) => match event {
                     DiscordCommEvent::Login(token) => {
                        self.start_client(token).await;
                     }
-                    DiscordCommEvent::MessageSend(id, content) => {
-                        let http = self.http_mutex.lock().await;
-                        
+                    DiscordCommEvent::MessageSend(id, content) => {                        
                         if let Some(http) = &http.to_owned() {
                             let msg_res = ChannelId::new(id).say(http, content).await;
 
