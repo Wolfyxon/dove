@@ -104,7 +104,6 @@ impl App {
     }
 
     fn cmd_help(&mut self, _ctx: CommandContext) {
-        // Rust makes me want to cry... WHY CAN'T I SIMPLY ITERATE ON A VECTOR ONCE AND CALL self.add_message() BUT I HAVE TO CREATE ANOTHER FRICKING VECTOR
         let mut msgs: Vec<GuiMessage> = Vec::new();
 
         for cmd in &self.commands {
