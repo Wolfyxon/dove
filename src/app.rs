@@ -51,8 +51,11 @@ impl App {
             messages: vec![
                 GuiMessage::Generic("Welcome to Dove".to_string()),
                 GuiMessage::Generic("Contact Wolfyxon if you need help or find bugs".to_string()),
+                GuiMessage::Generic("Please note that this is an early test version and things may change soon.\n".to_string()),
+
                 GuiMessage::Generic("Use /help to see a list of commands".to_string()),
-                GuiMessage::Generic("Use /login <token> to log into the chat".to_string())
+                GuiMessage::Generic("Use /login <token> to log into the chat".to_string()),
+                GuiMessage::Generic("Do not show your token to anyone!".to_string()),
             ],
             commands: vec![
                 ChatCommand::one_alias("help")
