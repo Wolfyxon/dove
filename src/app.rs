@@ -231,7 +231,7 @@ impl App {
                 }
                 DiscordCommEvent::MessageReceived(msg) => {
                     self.add_message(GuiMessage::User(
-                        msg.author.display_name().to_string(), 
+                        msg.author.display_name().replace("[dove]", "").trim().to_string(), 
                         msg.content
                     ));
                 }
