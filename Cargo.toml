@@ -11,3 +11,4 @@ serenity = "0.12.5" # Discord API
 regex = "1.12.2"
 global-hotkey = "0.7.0"
 dirs = "6.0.0"
+aes-gcm = "0.10.3"
