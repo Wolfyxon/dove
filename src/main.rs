@@ -11,6 +11,7 @@ use crate::{
 };
 
 mod app;
+mod config;
 mod commands;
 mod discord;
 mod utils;
