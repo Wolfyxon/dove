@@ -1,8 +1,31 @@
+use std::{fmt::Display, string::FromUtf8Error};
+
 use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::{Aead, generic_array::sequence::GenericSequence}};
+
+#[derive(Debug)]
+pub enum Error {
+    // TODO: Add error for get_key()
+    Lib(aes_gcm::Error),
+    FromUtf8(FromUtf8Error)
+}
+
+impl std::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let res = match &self {
+            Self::Lib(e) => e.to_string(),
+            Self::FromUtf8(e) => e.to_string()
+        };
+
+        write!(f, "{}", res);
+        Ok(())
+    }
+}
 
 // TODO: Figure out how to handle nonce properly
 
-fn get_key() -> Result<Aes256Gcm, String> {
+fn get_key() -> Result<Aes256Gcm, Error> {
     // TODO: Generate key based on runtime properties
     eprintln!("WARNING: Encryption key not properly generated");
 
@@ -11,24 +34,24 @@ fn get_key() -> Result<Aes256Gcm, String> {
     Ok(Aes256Gcm::new(key_array))
 }
 
-pub fn encrypt_string(plaintext: String) -> Result<Vec<u8>, String> {
+pub fn encrypt_string(plaintext: String) -> Result<Vec<u8>, Error> {
     let key = get_key()?;
     let nonce = Nonce::generate(|i| 0);
     
-    key.encrypt(&nonce, plaintext.as_bytes()).map_err(|e| e.to_string())
+    key.encrypt(&nonce, plaintext.as_bytes()).map_err(|e| Error::Lib(e))
 }
 
-pub fn decrypt_string(cipher: Vec<u8>) -> Result<String, String> {
+pub fn decrypt_string(cipher: Vec<u8>) -> Result<String, Error> {
     let buf = decrypt(cipher)?;
 
-    String::from_utf8(buf).map_err(|e| e.to_string())
+    String::from_utf8(buf).map_err(|e| Error::FromUtf8(e))
 }
 
-pub fn decrypt(cipher: Vec<u8>) -> Result<Vec<u8>, String> {
+pub fn decrypt(cipher: Vec<u8>) -> Result<Vec<u8>, Error> {
     let key = get_key()?;
     let nonce = Nonce::generate(|i| 0);
 
-    key.decrypt(&nonce, cipher.as_ref()).map_err(|e| e.to_string())
+    key.decrypt(&nonce, cipher.as_ref()).map_err(|e| Error::Lib(e))
 }
 
 #[cfg(test)]
