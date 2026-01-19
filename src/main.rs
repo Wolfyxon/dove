@@ -43,15 +43,13 @@ fn start_gui(tx_gui_to_dc: Sender<DiscordCommEvent>, rx_dc_to_gui: Receiver<Disc
         ..Default::default()
     };
 
-    eframe::run_native(
-        "Dove",
-        options,
-        Box::new(|_creation_ctx| Ok(Box::new(App::new(tx_gui_to_dc, rx_dc_to_gui)))),
-    )
-    .unwrap_or_else(|err| {
-        eprintln!("Start failed: {}", err);
-        exit(1);
-    });
+    let app = App::new(tx_gui_to_dc, rx_dc_to_gui);
+
+    eframe::run_native("Dove", options, Box::new(|_creation_ctx| Ok(Box::new(app))))
+        .unwrap_or_else(|err| {
+            eprintln!("Start failed: {}", err);
+            exit(1);
+        });
 }
 
 async fn start_discord(
