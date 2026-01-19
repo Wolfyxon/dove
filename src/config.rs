@@ -32,6 +32,10 @@ pub fn get_dir() -> PathBuf {
         .unwrap_or(Path::new("dove").to_path_buf())
 }
 
+pub fn create_dir() -> Result<(), Error> {
+    std::fs::create_dir_all(get_dir()).map_err(|e| Error::Io(e))
+}
+
 pub fn get_token_file_path() -> PathBuf {
     get_dir().join("DO_NOT_SHARE.dat")
 }
@@ -52,12 +56,11 @@ pub fn get_token() -> Result<String, Error> {
 
 fn save_encrypted_token(buf: &mut Vec<u8>) -> Result<(), Error> {
     let mut file = File::create(get_token_file_path()).map_err(|e| Error::Io(e))?;
-    file.write_all(buf);
-
-    Ok(())
+    file.write_all(buf).map_err(|e| Error::Io(e))
 }
 
 pub fn save_token(token: String) -> Result<(), Error> {
+    create_dir()?;
     let mut encrypted = crypto::aes256::encrypt_string(token).map_err(|e| Error::Aes256(e))?;
 
     save_encrypted_token(&mut encrypted)
