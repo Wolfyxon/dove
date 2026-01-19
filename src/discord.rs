@@ -111,6 +111,21 @@ impl DiscordManager {
         }
     }
 
+    async fn check_get_http(&mut self) -> Option<Arc<Http>> {
+        let http = self.http_mutex.lock().await;
+
+        match (*http).clone() {
+            Some(http) => Some(http),
+            None => {
+                self.send_to_gui(DiscordCommEvent::Error("Not logged in".to_string()))
+                    .await;
+
+                None
+            }
+        }
+
+    }
+
     pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
         // Important: http_mutex must not be locked and kept here, or other functions that use it will freeze
 
@@ -122,9 +137,7 @@ impl DiscordManager {
                         self.start_client(token).await;
                     }
                     DiscordCommEvent::MessageSend(id, content) => {
-                        let http = self.http_mutex.lock().await;
-
-                        if let Some(http) = &http.to_owned() {
+                        if let Some(http) = self.check_get_http().await {
                             let msg_res = ChannelId::new(id).say(http, content).await;
 
                             if let Err(e) = msg_res {
@@ -133,10 +146,7 @@ impl DiscordManager {
                                     e.to_string()
                                 )))
                                 .await;
-                            }
-                        } else {
-                            self.send_to_gui(DiscordCommEvent::Error("Not logged in".to_string()))
-                                .await;
+                            } 
                         }
                     }
                     _ => (),
