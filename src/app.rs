@@ -67,7 +67,7 @@ impl App {
                 ),
                 GuiMessage::Generic("Use /help to see a list of commands".to_string()),
                 GuiMessage::Generic("Use /login <token> to log into the chat".to_string()),
-                GuiMessage::Generic("Do not show your token to anyone!".to_string()),
+                GuiMessage::Generic("Do not show your token to anyone!\n".to_string()),
             ],
             commands: vec![
                 ChatCommand::one_alias("help")
@@ -172,7 +172,6 @@ impl App {
 
         match config::get_token() {
             Ok(token) => {
-                self.add_message(GuiMessage::Generic("Using last used token".to_string()));
                 self.login(token);
             }
             Err(e) => {
