@@ -15,6 +15,7 @@ mod config;
 mod commands;
 mod discord;
 mod utils;
+mod crypto;
 
 #[tokio::main]
 async fn main() {

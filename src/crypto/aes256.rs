@@ -1,4 +1,4 @@
-use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::{Aead, generic_array::sequence::GenericSequence}, aes::Aes256};
+use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::{Aead, generic_array::sequence::GenericSequence}};
 
 // TODO: Figure out how to handle nonce properly
 
@@ -33,7 +33,7 @@ pub fn decrypt(cipher: Vec<u8>) -> Result<Vec<u8>, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto::{decrypt_string, encrypt_string};
+    use crate::crypto::aes256::{decrypt_string, encrypt_string};
 
     #[test]
     fn test_encrypt_decrypt() {
