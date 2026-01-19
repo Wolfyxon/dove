@@ -1,4 +1,4 @@
-use std::{sync::Arc};
+use std::sync::Arc;
 
 use serenity::{
     Client,
@@ -8,10 +8,13 @@ use serenity::{
     },
     async_trait,
 };
-use tokio::{sync::{
-    Mutex,
-    mpsc::{Receiver, Sender},
-}, task::JoinHandle};
+use tokio::{
+    sync::{
+        Mutex,
+        mpsc::{Receiver, Sender},
+    },
+    task::JoinHandle,
+};
 
 pub type DiscordMessage = serenity::all::Message;
 
@@ -31,7 +34,7 @@ pub struct DiscordManager {
     tx: Sender<DiscordCommEvent>,
     http_mutex: Arc<Mutex<Option<Arc<Http>>>>,
     client_thread: Option<JoinHandle<()>>,
-    shard_manager: Option<Arc<ShardManager>>
+    shard_manager: Option<Arc<ShardManager>>,
 }
 
 impl DiscordManager {
@@ -40,7 +43,7 @@ impl DiscordManager {
             tx: tx,
             http_mutex: Arc::new(Mutex::new(None)),
             client_thread: None,
-            shard_manager: None
+            shard_manager: None,
         }
     }
 
@@ -98,7 +101,7 @@ impl DiscordManager {
 
     async fn abort(&mut self) {
         self.unset_http().await;
-        
+
         if let Some(client_thread) = &self.client_thread {
             client_thread.abort();
         }
@@ -114,9 +117,7 @@ impl DiscordManager {
         loop {
             match rx.recv().await {
                 Some(event) => match event {
-                    DiscordCommEvent::Logout => {
-                        self.abort().await
-                    },
+                    DiscordCommEvent::Logout => self.abort().await,
                     DiscordCommEvent::Login(token) => {
                         self.start_client(token).await;
                     }

@@ -28,14 +28,15 @@ impl Display for Error {
     }
 }
 
-fn get_key() -> Result<Aes256Gcm, Error> { // Returns Result in case this can error in the future
+fn get_key() -> Result<Aes256Gcm, Error> {
+    // Returns Result in case this can error in the future
     let mut rng = crypto::get_machine_id_rng();
     let mut key_slice: [u8; 32] = [0; 32];
-    
+
     rng.fill_bytes(&mut key_slice);
 
     let key = Key::<Aes256Gcm>::from_slice(&key_slice);
-    
+
     Ok(Aes256Gcm::new(&key))
 }
 

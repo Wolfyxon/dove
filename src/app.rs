@@ -96,7 +96,10 @@ impl App {
     fn cmd_logout(&mut self, _ctx: CommandContext) {
         if config::get_token_file_path().exists() {
             config::delete_token_file().unwrap_or_else(|e| {
-                self.add_message(GuiMessage::Error(format!("Unable to forget your token: {}", e)));
+                self.add_message(GuiMessage::Error(format!(
+                    "Unable to forget your token: {}",
+                    e
+                )));
             });
         }
 
