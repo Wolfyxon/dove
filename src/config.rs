@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     fs::{self, File},
-    io::{self, Read},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -48,4 +48,17 @@ fn get_encrypted_token() -> Result<Vec<u8>, io::Error> {
 pub fn get_token() -> Result<String, Error> {
     let encrypted = get_encrypted_token().map_err(|e| Error::Io(e))?;
     crypto::aes256::decrypt_string(encrypted).map_err(|e| Error::Aes256(e))
+}
+
+fn save_encrypted_token(buf: &mut Vec<u8>) -> Result<(), Error> {
+    let mut file = File::create(get_token_file_path()).map_err(|e| Error::Io(e))?;
+    file.write_all(buf);
+
+    Ok(())
+}
+
+pub fn save_token(token: String) -> Result<(), Error> {
+    let mut encrypted = crypto::aes256::encrypt_string(token).map_err(|e| Error::Aes256(e))?;
+
+    save_encrypted_token(&mut encrypted)
 }
