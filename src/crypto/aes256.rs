@@ -38,7 +38,7 @@ fn get_key() -> Result<Aes256Gcm, Error> {
 
 pub fn encrypt_string(plaintext: String) -> Result<Vec<u8>, Error> {
     let key = get_key()?;
-    let nonce = Nonce::generate(|i| 0);
+    let nonce = Nonce::generate(|_| 0);
 
     key.encrypt(&nonce, plaintext.as_bytes())
         .map_err(|e| Error::Lib(e))
@@ -52,7 +52,7 @@ pub fn decrypt_string(cipher: Vec<u8>) -> Result<String, Error> {
 
 pub fn decrypt(cipher: Vec<u8>) -> Result<Vec<u8>, Error> {
     let key = get_key()?;
-    let nonce = Nonce::generate(|i| 0);
+    let nonce = Nonce::generate(|_| 0);
 
     key.decrypt(&nonce, cipher.as_ref())
         .map_err(|e| Error::Lib(e))

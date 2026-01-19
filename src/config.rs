@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    fs::{self, File},
+    fs::File,
     io::{self, Read, Write},
     path::{Path, PathBuf},
 };

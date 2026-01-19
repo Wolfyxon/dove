@@ -2,7 +2,10 @@ use core::f32;
 use std::process::exit;
 
 use crate::{
-    commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, config, discord::DiscordCommEvent, utils
+    commands::{COMMAND_PREFIX, ChatCommand, CommandContext},
+    config,
+    discord::DiscordCommEvent,
+    utils,
 };
 use egui::{Color32, Frame, RichText, ScrollArea, TextEdit, Ui};
 use global_hotkey::{
@@ -81,7 +84,7 @@ impl App {
                     .with_handler(Self::cmd_exit),
             ],
         };
-        
+
         app.auto_login();
 
         app
@@ -171,7 +174,7 @@ impl App {
             Ok(token) => {
                 self.add_message(GuiMessage::Generic("Using last used token".to_string()));
                 self.login(token);
-            },
+            }
             Err(e) => {
                 self.add_message(GuiMessage::Error(format!("Unable to get token for automatic login: {}. \nPlease re-enter your token in /login", e)));
             }
@@ -265,14 +268,19 @@ impl App {
             Ok(event) => match event {
                 DiscordCommEvent::Ready => {
                     self.add_message(GuiMessage::Generic("Logged in successfully".to_string()));
-                    
+
                     if let Some(token) = &self.token_to_save {
                         match config::save_token(token.to_owned()) {
                             Ok(()) => {
-                                self.add_message(GuiMessage::Generic("Your token was encrypted and saved".to_string()));
-                            },
+                                self.add_message(GuiMessage::Generic(
+                                    "Your token was encrypted and saved".to_string(),
+                                ));
+                            }
                             Err(e) => {
-                                self.add_message(GuiMessage::Error(format!("Unable to save your token: {}", e)));
+                                self.add_message(GuiMessage::Error(format!(
+                                    "Unable to save your token: {}",
+                                    e
+                                )));
                             }
                         }
                     }
