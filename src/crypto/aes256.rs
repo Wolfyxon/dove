@@ -18,8 +18,7 @@ impl Display for Error {
             Self::FromUtf8(e) => e.to_string()
         };
 
-        write!(f, "{}", res);
-        Ok(())
+        write!(f, "{}", res)
     }
 }
 
