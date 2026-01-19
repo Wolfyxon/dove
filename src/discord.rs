@@ -28,14 +28,14 @@ pub enum DiscordCommEvent {
 
 pub struct DiscordManager {
     tx: Sender<DiscordCommEvent>,
-    http_mutex: Arc<Mutex<Option<Arc<Http>>>>
+    http_mutex: Arc<Mutex<Option<Arc<Http>>>>,
 }
 
 impl DiscordManager {
     pub fn new(tx: Sender<DiscordCommEvent>) -> Self {
-        Self { 
+        Self {
             tx: tx,
-            http_mutex: Arc::new(Mutex::new(None)) 
+            http_mutex: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -88,16 +88,16 @@ impl DiscordManager {
     pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
         self.unset_http().await;
         // Important: http_mutex must not be locked and kept here, or other functions that use it will freeze
-        
+
         loop {
             match rx.recv().await {
                 Some(event) => match event {
                     DiscordCommEvent::Login(token) => {
-                       self.start_client(token).await;
+                        self.start_client(token).await;
                     }
-                    DiscordCommEvent::MessageSend(id, content) => {      
+                    DiscordCommEvent::MessageSend(id, content) => {
                         let http = self.http_mutex.lock().await;
-                        
+
                         if let Some(http) = &http.to_owned() {
                             let msg_res = ChannelId::new(id).say(http, content).await;
 
@@ -105,10 +105,12 @@ impl DiscordManager {
                                 self.send_to_gui(DiscordCommEvent::Error(format!(
                                     "Unable to send message: {}",
                                     e.to_string()
-                                ))).await;
+                                )))
+                                .await;
                             }
                         } else {
-                            self.send_to_gui(DiscordCommEvent::Error("Not logged in".to_string())).await;
+                            self.send_to_gui(DiscordCommEvent::Error("Not logged in".to_string()))
+                                .await;
                         }
                     }
                     _ => (),

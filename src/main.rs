@@ -11,11 +11,11 @@ use crate::{
 };
 
 mod app;
-mod config;
 mod commands;
+mod config;
+mod crypto;
 mod discord;
 mod utils;
-mod crypto;
 
 #[tokio::main]
 async fn main() {

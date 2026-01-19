@@ -1,11 +1,16 @@
-use std::{fmt::Display, fs::{self, File}, io::{self, Read}, path::{Path, PathBuf}};
+use std::{
+    fmt::Display,
+    fs::{self, File},
+    io::{self, Read},
+    path::{Path, PathBuf},
+};
 
 use crate::crypto;
 
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
-    Aes256(crypto::aes256::Error)
+    Aes256(crypto::aes256::Error),
 }
 
 impl std::error::Error for Error {}
@@ -14,7 +19,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let res = match &self {
             Self::Io(e) => e.to_string(),
-            Self::Aes256(e) => e.to_string()
+            Self::Aes256(e) => e.to_string(),
         };
 
         write!(f, "{}", res)
@@ -22,15 +27,13 @@ impl Display for Error {
 }
 
 pub fn get_dir() -> PathBuf {
-    dirs::config_dir().map(|v| {
-        v.join("Wolfyxon/dove")
-    }).unwrap_or(
-        Path::new("dove").to_path_buf()
-    )
+    dirs::config_dir()
+        .map(|v| v.join("Wolfyxon/dove"))
+        .unwrap_or(Path::new("dove").to_path_buf())
 }
 
 pub fn get_token_file_path() -> PathBuf {
-    get_dir().join("DO_NOT_SHARE.dat") 
+    get_dir().join("DO_NOT_SHARE.dat")
 }
 
 fn get_encrypted_token() -> Result<Vec<u8>, io::Error> {

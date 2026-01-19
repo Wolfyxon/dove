@@ -1,12 +1,15 @@
 use std::{fmt::Display, string::FromUtf8Error};
 
-use aes_gcm::{Aes256Gcm, Key, KeyInit, Nonce, aead::{Aead, generic_array::sequence::GenericSequence}};
+use aes_gcm::{
+    Aes256Gcm, Key, KeyInit, Nonce,
+    aead::{Aead, generic_array::sequence::GenericSequence},
+};
 
 #[derive(Debug)]
 pub enum Error {
     // TODO: Add error for get_key()
     Lib(aes_gcm::Error),
-    FromUtf8(FromUtf8Error)
+    FromUtf8(FromUtf8Error),
 }
 
 impl std::error::Error for Error {}
@@ -15,7 +18,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let res = match &self {
             Self::Lib(e) => e.to_string(),
-            Self::FromUtf8(e) => e.to_string()
+            Self::FromUtf8(e) => e.to_string(),
         };
 
         write!(f, "{}", res)
@@ -36,8 +39,9 @@ fn get_key() -> Result<Aes256Gcm, Error> {
 pub fn encrypt_string(plaintext: String) -> Result<Vec<u8>, Error> {
     let key = get_key()?;
     let nonce = Nonce::generate(|i| 0);
-    
-    key.encrypt(&nonce, plaintext.as_bytes()).map_err(|e| Error::Lib(e))
+
+    key.encrypt(&nonce, plaintext.as_bytes())
+        .map_err(|e| Error::Lib(e))
 }
 
 pub fn decrypt_string(cipher: Vec<u8>) -> Result<String, Error> {
@@ -50,7 +54,8 @@ pub fn decrypt(cipher: Vec<u8>) -> Result<Vec<u8>, Error> {
     let key = get_key()?;
     let nonce = Nonce::generate(|i| 0);
 
-    key.decrypt(&nonce, cipher.as_ref()).map_err(|e| Error::Lib(e))
+    key.decrypt(&nonce, cipher.as_ref())
+        .map_err(|e| Error::Lib(e))
 }
 
 #[cfg(test)]
