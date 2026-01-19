@@ -44,7 +44,7 @@ impl App {
             .register(key)
             .expect("Failed to register chat hotkey");
 
-        Self {
+        let mut app = Self {
             tx_to_dc: tx_to_dc,
             rx_from_dc: rx_from_dc,
             main_frame: Frame::new(),
@@ -80,7 +80,11 @@ impl App {
                     .with_description("Closes the program")
                     .with_handler(Self::cmd_exit),
             ],
-        }
+        };
+        
+        app.auto_login();
+
+        app
     }
 
     fn cmd_login(&mut self, ctx: CommandContext) {
@@ -114,8 +118,7 @@ impl App {
             self.token_to_save = Some(token.to_owned());
         }
 
-        self.add_message(GuiMessage::Generic("Logging in...".to_string()));
-        self.transmit_to_dc(DiscordCommEvent::Login(token));
+        self.login(token);
     }
 
     fn cmd_help(&mut self, _ctx: CommandContext) {
@@ -152,6 +155,27 @@ impl App {
         }
 
         None
+    }
+
+    fn login(&mut self, token: String) {
+        self.add_message(GuiMessage::Generic("Logging in...".to_string()));
+        self.transmit_to_dc(DiscordCommEvent::Login(token));
+    }
+
+    fn auto_login(&mut self) {
+        if !config::get_token_file_path().exists() {
+            return;
+        }
+
+        match config::get_token() {
+            Ok(token) => {
+                self.add_message(GuiMessage::Generic("Using last used token".to_string()));
+                self.login(token);
+            },
+            Err(e) => {
+                self.add_message(GuiMessage::Error(format!("Unable to get token for automatic login: {}. \nPlease re-enter your token in /login", e)));
+            }
+        };
     }
 
     fn add_message(&mut self, msg: GuiMessage) {
