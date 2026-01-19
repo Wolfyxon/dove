@@ -17,7 +17,7 @@ mod crypto;
 mod discord;
 mod utils;
 
-#[tokio::main]
+#[tokio::main] // Even though main doesn't need to be async, this macro is required for tokio to work
 async fn main() {
     let (tx_dc_to_gui, rx_dc_to_gui): MPSCChannel<DiscordCommEvent> =
         mpsc::channel(COMM_BUFFER_SIZE);
