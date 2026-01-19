@@ -4,6 +4,9 @@ use aes_gcm::{
     Aes256Gcm, Key, KeyInit, Nonce,
     aead::{Aead, generic_array::sequence::GenericSequence},
 };
+use rand::RngCore;
+
+use crate::crypto;
 
 #[derive(Debug)]
 pub enum Error {
@@ -25,15 +28,15 @@ impl Display for Error {
     }
 }
 
-// TODO: Figure out how to handle nonce properly
+fn get_key() -> Result<Aes256Gcm, Error> { // Returns Result in case this can error in the future
+    let mut rng = crypto::get_machine_id_rng();
+    let mut key_slice: [u8; 32] = [0; 32];
+    
+    rng.fill_bytes(&mut key_slice);
 
-fn get_key() -> Result<Aes256Gcm, Error> {
-    // TODO: Generate key based on runtime properties
-    eprintln!("WARNING: Encryption key not properly generated");
-
-    let key_slice: &[u8] = &[42; 32];
-    let key_array = Key::<Aes256Gcm>::from_slice(key_slice);
-    Ok(Aes256Gcm::new(key_array))
+    let key = Key::<Aes256Gcm>::from_slice(&key_slice);
+    
+    Ok(Aes256Gcm::new(&key))
 }
 
 pub fn encrypt_string(plaintext: String) -> Result<Vec<u8>, Error> {
