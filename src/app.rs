@@ -2,9 +2,7 @@ use core::f32;
 use std::process::exit;
 
 use crate::{
-    commands::{COMMAND_PREFIX, ChatCommand, CommandContext},
-    discord::DiscordCommEvent,
-    utils,
+    commands::{COMMAND_PREFIX, ChatCommand, CommandContext}, config, discord::DiscordCommEvent, utils
 };
 use egui::{Color32, Frame, RichText, ScrollArea, TextEdit, Ui};
 use global_hotkey::{
@@ -27,6 +25,7 @@ pub struct App {
     tx_to_dc: Sender<DiscordCommEvent>,
     rx_from_dc: Receiver<DiscordCommEvent>,
     token_regex: Regex,
+    token_to_save: Option<String>,
     commands: Vec<ChatCommand>,
     global_key_receiver: &'static GlobalHotKeyEventReceiver,
     open_chat_hotkey: HotKey,
@@ -53,6 +52,7 @@ impl App {
             global_key_manager: key_manager,
             global_key_receiver: key_receiver,
             open_chat_hotkey: key,
+            token_to_save: None,
             token_regex: Regex::new(r"[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{16,}")
                 .expect("Invalid regex pattern for token"),
             messages: vec![
@@ -99,7 +99,7 @@ impl App {
             match env_token {
                 Ok(tok) => {
                     self.add_message(GuiMessage::Generic(
-                        "Using token from env variables".to_string(),
+                        "Using token from env variables. It won't be saved.".to_string(),
                     ));
                     token = tok.to_owned()
                 }
@@ -110,6 +110,8 @@ impl App {
                     return;
                 }
             };
+        } else {
+            self.token_to_save = Some(token.to_owned());
         }
 
         self.add_message(GuiMessage::Generic("Logging in...".to_string()));
@@ -239,6 +241,17 @@ impl App {
             Ok(event) => match event {
                 DiscordCommEvent::Ready => {
                     self.add_message(GuiMessage::Generic("Logged in successfully".to_string()));
+                    
+                    if let Some(token) = &self.token_to_save {
+                        match config::save_token(token.to_owned()) {
+                            Ok(()) => {
+                                self.add_message(GuiMessage::Generic("Your token was encrypted and saved".to_string()));
+                            },
+                            Err(e) => {
+                                self.add_message(GuiMessage::Error(format!("Unable to save your token: {}", e)));
+                            }
+                        }
+                    }
                 }
                 DiscordCommEvent::Error(text) => {
                     self.add_message(GuiMessage::Error(text));
