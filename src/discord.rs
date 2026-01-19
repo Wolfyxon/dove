@@ -1,17 +1,17 @@
-use std::sync::Arc;
+use std::{sync::Arc};
 
 use serenity::{
     Client,
     all::{
         ChannelId, Context, EventHandler, GatewayError, GatewayIntents, GuildId, Http, Message,
-        Ready,
+        Ready, ShardManager,
     },
     async_trait,
 };
-use tokio::sync::{
+use tokio::{sync::{
     Mutex,
     mpsc::{Receiver, Sender},
-};
+}, task::JoinHandle};
 
 pub type DiscordMessage = serenity::all::Message;
 
@@ -19,6 +19,7 @@ pub type DiscordMessage = serenity::all::Message;
 pub enum DiscordCommEvent {
     // GUI -> Discord
     Login(String),
+    Logout,
     MessageSend(u64, String),
     // Discord -> GUI
     Ready,
@@ -29,6 +30,8 @@ pub enum DiscordCommEvent {
 pub struct DiscordManager {
     tx: Sender<DiscordCommEvent>,
     http_mutex: Arc<Mutex<Option<Arc<Http>>>>,
+    client_thread: Option<JoinHandle<()>>,
+    shard_manager: Option<Arc<ShardManager>>
 }
 
 impl DiscordManager {
@@ -36,6 +39,8 @@ impl DiscordManager {
         Self {
             tx: tx,
             http_mutex: Arc::new(Mutex::new(None)),
+            client_thread: None,
+            shard_manager: None
         }
     }
 
@@ -49,7 +54,9 @@ impl DiscordManager {
         });
     }
 
-    async fn start_client(&self, token: String) {
+    async fn start_client(&mut self, token: String) {
+        self.abort().await;
+
         let mut new_client = Self::new_client(token, self.tx.clone()).await;
         let tx = self.tx.clone();
 
@@ -59,7 +66,9 @@ impl DiscordManager {
         let mut http = http_mutex.lock().await;
         *http = Some(new_client.http.clone());
 
-        tokio::spawn(async move {
+        self.shard_manager = Some(new_client.shard_manager.clone());
+
+        let thread: JoinHandle<()> = tokio::spawn(async move {
             let client_res = new_client.start().await;
 
             let mut http_mutex = http_mutex2.lock().await;
@@ -78,6 +87,8 @@ impl DiscordManager {
                 Self::tx_send(&tx, event).await;
             }
         });
+
+        self.client_thread = Some(thread);
     }
 
     async fn unset_http(&mut self) {
@@ -85,13 +96,27 @@ impl DiscordManager {
         *http = None;
     }
 
-    pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
+    async fn abort(&mut self) {
         self.unset_http().await;
+        
+        if let Some(client_thread) = &self.client_thread {
+            client_thread.abort();
+        }
+
+        if let Some(shard_manager) = &self.shard_manager {
+            shard_manager.shutdown_all().await;
+        }
+    }
+
+    pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
         // Important: http_mutex must not be locked and kept here, or other functions that use it will freeze
 
         loop {
             match rx.recv().await {
                 Some(event) => match event {
+                    DiscordCommEvent::Logout => {
+                        self.abort().await
+                    },
                     DiscordCommEvent::Login(token) => {
                         self.start_client(token).await;
                     }

@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    fs::File,
+    fs::{self, File},
     io::{self, Read, Write},
     path::{Path, PathBuf},
 };
@@ -38,6 +38,10 @@ pub fn create_dir() -> Result<(), Error> {
 
 pub fn get_token_file_path() -> PathBuf {
     get_dir().join("DO_NOT_SHARE.dat")
+}
+
+pub fn delete_token_file() -> Result<(), io::Error> {
+    fs::remove_file(get_token_file_path())
 }
 
 fn get_encrypted_token() -> Result<Vec<u8>, io::Error> {

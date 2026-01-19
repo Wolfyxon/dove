@@ -76,6 +76,9 @@ impl App {
                 ChatCommand::one_alias("login")
                     .with_description("Logs into Discord with the specified token")
                     .with_handler(Self::cmd_login),
+                ChatCommand::one_alias("logout")
+                    .with_description("Logs out of Discord and forgets your token")
+                    .with_handler(Self::cmd_logout),
                 ChatCommand::one_alias("clear")
                     .with_description("Clears the chat")
                     .with_handler(Self::cmd_clear),
@@ -88,6 +91,18 @@ impl App {
         app.auto_login();
 
         app
+    }
+
+    fn cmd_logout(&mut self, _ctx: CommandContext) {
+        if config::get_token_file_path().exists() {
+            config::delete_token_file().unwrap_or_else(|e| {
+                self.add_message(GuiMessage::Error(format!("Unable to forget your token: {}", e)));
+            });
+        }
+
+        self.transmit_to_dc(DiscordCommEvent::Logout);
+
+        self.add_message(GuiMessage::Generic("Logged out".to_string()));
     }
 
     fn cmd_login(&mut self, ctx: CommandContext) {
