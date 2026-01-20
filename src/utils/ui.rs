@@ -10,12 +10,7 @@ pub fn combine_rich_text(texts: Vec<impl Into<RichText>>) -> LayoutJob {
 
     for text in texts {
         text.into()
-            .append_to(
-                &mut layout_job, 
-                &style, 
-                FontSelection::Default, 
-                Align::Min
-            );
+            .append_to(&mut layout_job, &style, FontSelection::Default, Align::Min);
     }
 
     layout_job

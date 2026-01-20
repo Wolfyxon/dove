@@ -125,7 +125,6 @@ impl DiscordManager {
                 None
             }
         }
-
     }
 
     pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
@@ -148,7 +147,7 @@ impl DiscordManager {
                                     e.to_string()
                                 )))
                                 .await;
-                            } 
+                            }
                         }
                     }
                     _ => (),

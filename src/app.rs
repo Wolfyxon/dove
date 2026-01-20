@@ -7,7 +7,7 @@ use crate::{
     discord::{self, DiscordCommEvent},
     utils,
 };
-use egui::{Align, Color32, FontSelection, Frame, RichText, ScrollArea, Style, TextEdit, Ui, text::LayoutJob};
+use egui::{Color32, Frame, RichText, ScrollArea, TextEdit, Ui};
 use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyEventReceiver, GlobalHotKeyManager,
     hotkey::{self, HotKey},
@@ -24,7 +24,7 @@ enum GuiMessage {
 struct GuiUserMessage {
     name: String,
     content: String,
-    private: bool
+    private: bool,
 }
 
 pub struct App {
@@ -312,16 +312,17 @@ impl App {
                     self.add_message(GuiMessage::Error(text));
                 }
                 DiscordCommEvent::MessageReceived(msg) => {
-                    let name =  msg.author
-                            .display_name()
-                            .replace("[dove]", "")
-                            .trim()
-                            .to_string();
+                    let name = msg
+                        .author
+                        .display_name()
+                        .replace("[dove]", "")
+                        .trim()
+                        .to_string();
 
                     let msg_struct = GuiUserMessage {
                         name: name,
                         content: msg.content,
-                        private: msg.guild_id.is_none()
+                        private: msg.guild_id.is_none(),
                     };
 
                     self.add_message(GuiMessage::User(msg_struct));
@@ -342,9 +343,8 @@ impl App {
 
                 if msg.private {
                     texts.push(
-                        RichText::new(format!("[From {}] ", &msg.name))
-                            .color(Color32::WHITE)
-                        );
+                        RichText::new(format!("[From {}] ", &msg.name)).color(Color32::WHITE),
+                    );
                 }
 
                 let color = Color32::from_rgb(116, 113, 255);
@@ -366,8 +366,9 @@ impl eframe::App for App {
         self.poll_discord_events();
 
         egui::TopBottomPanel::bottom("bottom").show(ctx, |ui| {
-            let msg_input =
-                TextEdit::singleline(&mut self.text_to_send).hint_text("Type your message...").char_limit(discord::MESSAGE_LEN_LIMIT);
+            let msg_input = TextEdit::singleline(&mut self.text_to_send)
+                .hint_text("Type your message...")
+                .char_limit(discord::MESSAGE_LEN_LIMIT);
             let msg_input_resp = ui.add_sized(ui.available_size(), msg_input);
 
             if utils::ui::input_submitted(&msg_input_resp, &ui) {
