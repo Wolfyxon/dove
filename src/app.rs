@@ -7,7 +7,7 @@ use crate::{
     discord::{self, DiscordCommEvent},
     utils,
 };
-use egui::{Color32, Frame, RichText, ScrollArea, TextEdit, Ui};
+use egui::{Align, Color32, FontSelection, Frame, RichText, ScrollArea, Style, TextEdit, Ui, text::LayoutJob};
 use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyEventReceiver, GlobalHotKeyManager,
     hotkey::{self, HotKey},
@@ -338,13 +338,21 @@ impl App {
                 ui.label(text);
             }
             GuiMessage::User(msg) => {
-                let mut prefix = String::new();
+                let mut texts: Vec<RichText> = Vec::new();
 
                 if msg.private {
-                    prefix = format!("[From {}] ", msg.name);
+                    texts.push(
+                        RichText::new(format!("[From {}] ", &msg.name))
+                            .color(Color32::WHITE)
+                        );
                 }
 
-                ui.label(RichText::new(format!("{}{}: {}", prefix, msg.name, msg.content)).color(Color32::WHITE));
+                let color = Color32::from_rgb(116, 113, 255);
+
+                texts.push(RichText::new(&msg.name).color(color).strong());
+                texts.push(RichText::new(format!(": {}", &msg.content)).color(Color32::WHITE));
+
+                ui.label(utils::ui::combine_rich_text(texts));
             }
             GuiMessage::Error(text) => {
                 ui.label(RichText::new(text).color(Color32::RED));
