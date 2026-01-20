@@ -159,6 +159,7 @@ impl DiscordManager {
     async fn new_client(token: String, tx: Sender<DiscordCommEvent>) -> Client {
         let intents = GatewayIntents::GUILD_MESSAGES
             | GatewayIntents::GUILDS
+            | GatewayIntents::DIRECT_MESSAGES
             | GatewayIntents::MESSAGE_CONTENT;
 
         let client = Client::builder(token, intents)
