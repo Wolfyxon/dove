@@ -4,7 +4,7 @@ use std::process::exit;
 use crate::{
     commands::{COMMAND_PREFIX, ChatCommand, CommandContext},
     config,
-    discord::DiscordCommEvent,
+    discord::{self, DiscordCommEvent},
     utils,
 };
 use egui::{Color32, Frame, RichText, ScrollArea, TextEdit, Ui};
@@ -359,7 +359,7 @@ impl eframe::App for App {
 
         egui::TopBottomPanel::bottom("bottom").show(ctx, |ui| {
             let msg_input =
-                TextEdit::singleline(&mut self.text_to_send).hint_text("Type your message...");
+                TextEdit::singleline(&mut self.text_to_send).hint_text("Type your message...").char_limit(discord::MESSAGE_LEN_LIMIT);
             let msg_input_resp = ui.add_sized(ui.available_size(), msg_input);
 
             if utils::ui::input_submitted(&msg_input_resp, &ui) {

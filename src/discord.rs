@@ -30,6 +30,8 @@ pub enum DiscordCommEvent {
     MessageReceived(DiscordMessage),
 }
 
+pub const MESSAGE_LEN_LIMIT: usize = 2000;
+
 pub struct DiscordManager {
     tx: Sender<DiscordCommEvent>,
     http_mutex: Arc<Mutex<Option<Arc<Http>>>>,
