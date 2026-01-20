@@ -16,9 +16,15 @@ use regex::Regex;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 enum GuiMessage {
-    User(String, String),
+    User(GuiUserMessage),
     Error(String),
     Generic(String),
+}
+
+struct GuiUserMessage {
+    name: String,
+    content: String,
+    private: bool
 }
 
 pub struct App {
@@ -306,14 +312,19 @@ impl App {
                     self.add_message(GuiMessage::Error(text));
                 }
                 DiscordCommEvent::MessageReceived(msg) => {
-                    self.add_message(GuiMessage::User(
-                        msg.author
+                    let name =  msg.author
                             .display_name()
                             .replace("[dove]", "")
                             .trim()
-                            .to_string(),
-                        msg.content,
-                    ));
+                            .to_string();
+
+                    let msg_struct = GuiUserMessage {
+                        name: name,
+                        content: msg.content,
+                        private: msg.guild_id.is_none()
+                    };
+
+                    self.add_message(GuiMessage::User(msg_struct));
                 }
                 _ => (),
             },
@@ -326,8 +337,14 @@ impl App {
             GuiMessage::Generic(text) => {
                 ui.label(text);
             }
-            GuiMessage::User(name, text) => {
-                ui.label(RichText::new(format!("{}: {}", name, text)).color(Color32::WHITE));
+            GuiMessage::User(msg) => {
+                let mut prefix = String::new();
+
+                if msg.private {
+                    prefix = format!("[From {}] ", msg.name);
+                }
+
+                ui.label(RichText::new(format!("{}{}: {}", prefix, msg.name, msg.content)).color(Color32::WHITE));
             }
             GuiMessage::Error(text) => {
                 ui.label(RichText::new(text).color(Color32::RED));
