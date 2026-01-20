@@ -96,6 +96,8 @@ mod tests {
 
             let summ2 = get_machine_summary();
 
+            println!("{}", summ1);
+
             assert_eq!(summ1, summ2);
         }
     }
