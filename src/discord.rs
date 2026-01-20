@@ -3,8 +3,7 @@ use std::sync::Arc;
 use serenity::{
     Client,
     all::{
-        ChannelId, Context, EventHandler, GatewayError, GatewayIntents, GuildId, Http, Message,
-        Ready, ShardManager,
+        ChannelId, Context, EventHandler, GatewayError, GatewayIntents, GuildId, GuildInfo, Http, Message, Ready, ShardManager
     },
     async_trait,
 };
@@ -24,10 +23,12 @@ pub enum DiscordCommEvent {
     Login(String),
     Logout,
     MessageSend(u64, String),
+    GetGuilds,
     // Discord -> GUI
     Ready,
     Error(String),
     MessageReceived(DiscordMessage),
+    GuildsListed(Vec<GuildInfo>)
 }
 
 pub const MESSAGE_LEN_LIMIT: usize = 2000;
@@ -148,6 +149,16 @@ impl DiscordManager {
                                 )))
                                 .await;
                             }
+                        }
+                    }
+                    DiscordCommEvent::GetGuilds => {
+                        if let Some(http) = self.check_get_http().await {
+                            let guilds = http.get_guilds(None, None).await;
+
+                            match guilds {
+                                Ok(guilds) => self.send_to_gui(DiscordCommEvent::GuildsListed(guilds)).await,
+                                Err(e) => self.send_to_gui(DiscordCommEvent::Error(format!("Unable to get guilds: {}", e))).await
+                            };
                         }
                     }
                     _ => (),

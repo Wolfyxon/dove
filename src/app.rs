@@ -85,6 +85,9 @@ impl App {
                 ChatCommand::one_alias("logout")
                     .with_description("Logs out of Discord and forgets your token")
                     .with_handler(Self::cmd_logout),
+                ChatCommand::one_alias("servers")
+                    .with_description("Shows a list of available servers")
+                    .with_handler(Self::cmd_list_guilds),
                 ChatCommand::one_alias("clear")
                     .with_description("Clears the chat")
                     .with_handler(Self::cmd_clear),
@@ -146,6 +149,10 @@ impl App {
         }
 
         self.login(token);
+    }
+
+    fn cmd_list_guilds(&mut self, _ctx: CommandContext) {
+        self.transmit_to_dc(DiscordCommEvent::GetGuilds);
     }
 
     fn cmd_help(&mut self, _ctx: CommandContext) {
@@ -326,6 +333,13 @@ impl App {
                     };
 
                     self.add_message(GuiMessage::User(msg_struct));
+                }
+                DiscordCommEvent::GuildsListed(guilds) => {
+                    self.add_message(GuiMessage::Generic("Available servers:".to_string()));
+
+                    for guild in &guilds {
+                        self.add_message(GuiMessage::Generic(format!(" {}: {}", guild.id, guild.name)));                        
+                    }
                 }
                 _ => (),
             },
