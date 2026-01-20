@@ -37,7 +37,7 @@ pub fn create_dir() -> Result<(), Error> {
 }
 
 pub fn get_token_file_path() -> PathBuf {
-    get_dir().join("DO_NOT_SHARE.dat")
+    get_dir().join("tk.dat")
 }
 
 pub fn delete_token_file() -> Result<(), io::Error> {
