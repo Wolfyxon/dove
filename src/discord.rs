@@ -1,9 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use serenity::{
     Client,
     all::{
-        Cache, CacheHttp, ChannelId, ChannelType, Context, EventHandler, GatewayError, GatewayIntents, GuildChannel, GuildId, GuildInfo, Http, Member, Message, Permissions, Ready, ShardManager
+        Cache, ChannelId, ChannelType, Context, EventHandler, GatewayError, GatewayIntents,
+        GuildChannel, GuildId, GuildInfo, Http, Message, Ready, ShardManager,
     },
     async_trait,
 };
@@ -30,7 +31,7 @@ pub enum DiscordCommEvent {
     Error(String),
     MessageReceived(DiscordMessage),
     GuildsListed(Vec<GuildInfo>),
-    AvailableTextChannelsListed(Vec<GuildChannel>)
+    AvailableTextChannelsListed(Vec<GuildChannel>),
 }
 
 pub const MESSAGE_LEN_LIMIT: usize = 2000;
@@ -75,7 +76,7 @@ impl DiscordManager {
 
         let mut http = http_mutex.lock().await;
         let mut cache = self.cache_mutex.lock().await;
-        
+
         *http = Some(new_client.http.clone());
         *cache = Some(new_client.cache.clone());
 
@@ -135,73 +136,90 @@ impl DiscordManager {
         }
     }
 
+    async fn event_get_available_text_channels(&mut self, guild_id: GuildId) -> Result<(), String> {
+        if let Some(http) = self.check_get_http().await {
+            let guild = http
+                .get_guild(guild_id)
+                .await
+                .map_err(|e| format!("Unable to get server: {}", e))?;
+
+            let channel_map = guild
+                .channels(&http)
+                .await
+                .map_err(|e| format!("Unable to get channels: {}", e))?;
+
+            let mut res: Vec<GuildChannel> = Vec::new();
+
+            // TODO: Check if the bot has access to the channels
+
+            for (_id, channel) in channel_map {
+                if !matches!(channel.kind, ChannelType::Text) {
+                    continue;
+                }
+
+                res.push(channel);
+            }
+
+            self.send_to_gui(DiscordCommEvent::AvailableTextChannelsListed(res))
+                .await;
+        }
+
+        Ok(())
+    }
+
+    async fn process_event(&mut self, event: DiscordCommEvent) -> Result<(), String> {
+        match event {
+            DiscordCommEvent::Logout => {
+                self.abort().await;
+                Ok(())
+            }
+            DiscordCommEvent::Login(token) => {
+                self.start_client(token).await;
+                Ok(())
+            }
+            DiscordCommEvent::MessageSend(id, content) => {
+                if let Some(http) = self.check_get_http().await {
+                    let _sent_msg = ChannelId::new(id)
+                        .say(http, content)
+                        .await
+                        .map_err(|e| format!("Unable to send message: {}", e))?;
+                }
+
+                Ok(())
+            }
+            DiscordCommEvent::GetGuilds => {
+                if let Some(http) = self.check_get_http().await {
+                    let guilds = http
+                        .get_guilds(None, None)
+                        .await
+                        .map_err(|e| format!("Unable to get servers: {}", e))?;
+
+                    self.send_to_gui(DiscordCommEvent::GuildsListed(guilds))
+                        .await;
+                }
+
+                Ok(())
+            }
+            DiscordCommEvent::GetAvailableTextChannels(guild_id) => {
+                let guild_id = GuildId::new(guild_id);
+
+                self.event_get_available_text_channels(guild_id).await
+            }
+            _ => Ok(()),
+        }
+    }
+
     pub async fn start(&mut self, mut rx: Receiver<DiscordCommEvent>) {
         // Important: http_mutex must not be locked and kept here, or other functions that use it will freeze
 
         loop {
-            match rx.recv().await {
-                Some(event) => match event {
-                    DiscordCommEvent::Logout => self.abort().await,
-                    DiscordCommEvent::Login(token) => {
-                        self.start_client(token).await;
-                    }
-                    DiscordCommEvent::MessageSend(id, content) => {
-                        if let Some(http) = self.check_get_http().await {
-                            let msg_res = ChannelId::new(id).say(http, content).await;
+            if let Some(event) = rx.recv().await {
+                let res = self.process_event(event).await;
 
-                            if let Err(e) = msg_res {
-                                self.send_to_gui(DiscordCommEvent::Error(format!(
-                                    "Unable to send message: {}",
-                                    e.to_string()
-                                )))
-                                .await;
-                            }
-                        }
-                    }
-                    DiscordCommEvent::GetGuilds => {
-                        if let Some(http) = self.check_get_http().await {
-                            let guilds = http.get_guilds(None, None).await;
-
-                            match guilds {
-                                Ok(guilds) => self.send_to_gui(DiscordCommEvent::GuildsListed(guilds)).await,
-                                Err(e) => self.send_to_gui(DiscordCommEvent::Error(format!("Unable to get guilds: {}", e))).await
-                            };
-                        }
-                    },
-                    DiscordCommEvent::GetAvailableTextChannels(guild_id) => {
-                        let guild_id = GuildId::new(guild_id);
-
-                        // TODO: Clean up this pyramid of doom
-                        //       Check if a channel is accessible
-
-                        if let Some(http) = self.check_get_http().await {
-                            match http.get_guild(guild_id).await {
-                                Ok(guild) => {
-                                    match guild.channels(&http).await {
-                                        Ok(map) => {
-                                            let mut res: Vec<GuildChannel> = Vec::new();
-
-                                            for (id, channel) in map {
-                                                if !matches!(channel.kind, ChannelType::Text) {
-                                                    continue;
-                                                }
-
-                                                res.push(channel);
-                                            }
-
-                                            self.send_to_gui(DiscordCommEvent::AvailableTextChannelsListed(res)).await;
-                                        },
-                                        Err(e) => self.send_to_gui(DiscordCommEvent::Error(format!("Unable to get channels: {}", e))).await
-                                    };
-                                },
-                                Err(e) => self.send_to_gui(DiscordCommEvent::Error(format!("Unable to get server: {}", e))).await
-                            };
-                        }
-                    }
-                    _ => (),
-                },
-                None => (),
-            };
+                if let Err(e) = res {
+                    self.send_to_gui(DiscordCommEvent::Error(e)).await;
+                }
+            }
         }
     }
 
