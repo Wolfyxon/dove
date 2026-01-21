@@ -88,6 +88,9 @@ impl App {
                 ChatCommand::one_alias("servers")
                     .with_description("Shows a list of available servers")
                     .with_handler(Self::cmd_list_guilds),
+                ChatCommand::one_alias("channels")
+                    .with_description("Shows a list of available channels in a given server")
+                    .with_handler(Self::cmd_list_channels),
                 ChatCommand::one_alias("clear")
                     .with_description("Clears the chat")
                     .with_handler(Self::cmd_clear),
@@ -153,6 +156,20 @@ impl App {
 
     fn cmd_list_guilds(&mut self, _ctx: CommandContext) {
         self.transmit_to_dc(DiscordCommEvent::GetGuilds);
+    }
+
+    fn cmd_list_channels(&mut self, ctx: CommandContext) {
+        match ctx.args.get(0) {
+            Some(guild_id) => {
+                match str::parse::<u64>(guild_id) {
+                    Ok(guild_id) => self.transmit_to_dc(DiscordCommEvent::GetAvailableTextChannels(guild_id)),
+                    Err(_e) => self.add_message(GuiMessage::Error("Invalid server ID".to_string()))
+                };
+            }
+            None => {
+                self.add_message(GuiMessage::Error("No server ID specified. Use /servers to get available servers".to_string()));
+            }
+        }
     }
 
     fn cmd_help(&mut self, _ctx: CommandContext) {
@@ -339,6 +356,15 @@ impl App {
 
                     for guild in &guilds {
                         self.add_message(GuiMessage::Generic(format!(" {}: {}", guild.id, guild.name)));                        
+                    }
+                },
+                DiscordCommEvent::AvailableTextChannelsListed(channels) => {
+                    self.add_message(GuiMessage::Generic("Available channels:".to_string()));
+
+                    for channel in channels {
+                        if channel.message_count.is_some() {
+                            self.add_message(GuiMessage::Generic(format!(" {}: #{}", channel.id, channel.name)));
+                        }
                     }
                 }
                 _ => (),

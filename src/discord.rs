@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use serenity::{
     Client,
     all::{
-        ChannelId, Context, EventHandler, GatewayError, GatewayIntents, GuildId, GuildInfo, Http, Message, Ready, ShardManager
+        Cache, CacheHttp, ChannelId, ChannelType, Context, EventHandler, GatewayError, GatewayIntents, GuildChannel, GuildId, GuildInfo, Http, Member, Message, Permissions, Ready, ShardManager
     },
     async_trait,
 };
@@ -24,11 +24,13 @@ pub enum DiscordCommEvent {
     Logout,
     MessageSend(u64, String),
     GetGuilds,
+    GetAvailableTextChannels(u64),
     // Discord -> GUI
     Ready,
     Error(String),
     MessageReceived(DiscordMessage),
-    GuildsListed(Vec<GuildInfo>)
+    GuildsListed(Vec<GuildInfo>),
+    AvailableTextChannelsListed(Vec<GuildChannel>)
 }
 
 pub const MESSAGE_LEN_LIMIT: usize = 2000;
@@ -36,6 +38,7 @@ pub const MESSAGE_LEN_LIMIT: usize = 2000;
 pub struct DiscordManager {
     tx: Sender<DiscordCommEvent>,
     http_mutex: Arc<Mutex<Option<Arc<Http>>>>,
+    cache_mutex: Arc<Mutex<Option<Arc<Cache>>>>,
     client_thread: Option<JoinHandle<()>>,
     shard_manager: Option<Arc<ShardManager>>,
 }
@@ -45,6 +48,7 @@ impl DiscordManager {
         Self {
             tx: tx,
             http_mutex: Arc::new(Mutex::new(None)),
+            cache_mutex: Arc::new(Mutex::new(None)),
             client_thread: None,
             shard_manager: None,
         }
@@ -70,7 +74,10 @@ impl DiscordManager {
         let http_mutex2 = self.http_mutex.clone();
 
         let mut http = http_mutex.lock().await;
+        let mut cache = self.cache_mutex.lock().await;
+        
         *http = Some(new_client.http.clone());
+        *cache = Some(new_client.cache.clone());
 
         self.shard_manager = Some(new_client.shard_manager.clone());
 
@@ -160,6 +167,36 @@ impl DiscordManager {
                                 Err(e) => self.send_to_gui(DiscordCommEvent::Error(format!("Unable to get guilds: {}", e))).await
                             };
                         }
+                    },
+                    DiscordCommEvent::GetAvailableTextChannels(guild_id) => {
+                        let guild_id = GuildId::new(guild_id);
+
+                        // TODO: Clean up this pyramid of doom
+                        //       Check if a channel is accessible
+
+                        if let Some(http) = self.check_get_http().await {
+                            match http.get_guild(guild_id).await {
+                                Ok(guild) => {
+                                    match guild.channels(&http).await {
+                                        Ok(map) => {
+                                            let mut res: Vec<GuildChannel> = Vec::new();
+
+                                            for (id, channel) in map {
+                                                if !matches!(channel.kind, ChannelType::Text) {
+                                                    continue;
+                                                }
+
+                                                res.push(channel);
+                                            }
+
+                                            self.send_to_gui(DiscordCommEvent::AvailableTextChannelsListed(res)).await;
+                                        },
+                                        Err(e) => self.send_to_gui(DiscordCommEvent::Error(format!("Unable to get channels: {}", e))).await
+                                    };
+                                },
+                                Err(e) => self.send_to_gui(DiscordCommEvent::Error(format!("Unable to get server: {}", e))).await
+                            };
+                        }
                     }
                     _ => (),
                 },
@@ -171,6 +208,7 @@ impl DiscordManager {
     async fn new_client(token: String, tx: Sender<DiscordCommEvent>) -> Client {
         let intents = GatewayIntents::GUILD_MESSAGES
             | GatewayIntents::GUILDS
+            | GatewayIntents::GUILD_MEMBERS
             | GatewayIntents::DIRECT_MESSAGES
             | GatewayIntents::MESSAGE_CONTENT;
 
