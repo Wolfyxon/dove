@@ -362,9 +362,7 @@ impl App {
                     self.add_message(GuiMessage::Generic("Available channels:".to_string()));
 
                     for channel in channels {
-                        if channel.message_count.is_some() {
-                            self.add_message(GuiMessage::Generic(format!(" {}: #{}", channel.id, channel.name)));
-                        }
+                        self.add_message(GuiMessage::Generic(format!(" {}: #{}", channel.id, channel.name)));
                     }
                 }
                 _ => (),
